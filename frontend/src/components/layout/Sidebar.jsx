@@ -216,9 +216,28 @@ const Sidebar = () => {
                         <p className="text-sm font-medium text-gray-900 truncate">
                           {chat.members?.[0]?.name || chat.members?.[0]?.phone || 'Unknown'}
                         </p>
-                        <p className="text-sm text-gray-500 truncate">
-                          {chat.lastMessage?.content || 'No messages yet'}
-                        </p>
+                        <div className="flex items-center gap-1">
+                          {/* Show status icon if last message is from current user */}
+                          {(chat.lastMessage?.senderId === user?.id || chat.last_message?.senderId === user?.id) && (
+                            <span className="text-xs flex-shrink-0">
+                              {(chat.lastMessage?.status || chat.last_message?.status) === 'sending' && (
+                                <span className="text-gray-400">⏳</span>
+                              )}
+                              {(chat.lastMessage?.status || chat.last_message?.status) === 'sent' && (
+                                <span className="text-gray-400">✓</span>
+                              )}
+                              {(chat.lastMessage?.status || chat.last_message?.status) === 'delivered' && (
+                                <span className="text-gray-500">✓✓</span>
+                              )}
+                              {(chat.lastMessage?.status || chat.last_message?.status) === 'read' && (
+                                <span className="text-blue-500">✓✓</span>
+                              )}
+                            </span>
+                          )}
+                          <p className="text-sm text-gray-500 truncate">
+                            {chat.lastMessage?.content || chat.last_message?.content || 'No messages yet'}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>

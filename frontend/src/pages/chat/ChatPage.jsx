@@ -8,6 +8,7 @@ import { formatMessageTime } from '@utils/formatters';
 import toast from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
 import MessageActions from '@/components/MessageActions';
+import EmojiPicker from '@/components/EmojiPicker';
 
 const ChatPage = () => {
   const { chatId } = useParams();
@@ -18,6 +19,7 @@ const ChatPage = () => {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [hoveredMessageId, setHoveredMessageId] = useState(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesEndRef = useRef(null);
   const markedAsReadRef = useRef(new Set());
   const messageRefs = useRef({});
@@ -156,11 +158,16 @@ const ChatPage = () => {
 
   const handleTyping = () => {
     socket.startTyping(chatId);
-    
+
     // Auto-stop after 3 seconds
     setTimeout(() => {
       socket.stopTyping(chatId);
     }, 3000);
+  };
+
+  const handleEmojiSelect = (emoji) => {
+    setMessage((prev) => prev + emoji);
+    setShowEmojiPicker(false);
   };
 
   // Get other user info from chat
@@ -250,7 +257,29 @@ const ChatPage = () => {
 
       {/* Message input */}
       <div className="px-6 py-4 border-t border-gray-200 bg-white">
-        <form onSubmit={handleSendMessage} className="flex space-x-4">
+        <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
+          {/* Emoji Picker Button */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600 hover:text-gray-800"
+              title="Add emoji"
+            >
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5-9c.83 0 1.5-.67 1.5-1.5S7.83 8 7 8s-1.5.67-1.5 1.5S6.17 11 7 11zm10 0c.83 0 1.5-.67 1.5-1.5S17.83 8 17 8s-1.5.67-1.5 1.5.67 1.5 1.5 1.5zm-5 5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/>
+              </svg>
+            </button>
+
+            {/* Emoji Picker */}
+            {showEmojiPicker && (
+              <EmojiPicker
+                onEmojiSelect={handleEmojiSelect}
+                onClose={() => setShowEmojiPicker(false)}
+              />
+            )}
+          </div>
+
           <input
             type="text"
             value={message}

@@ -9,7 +9,12 @@ export const useChatStore = create((set, get) => ({
   onlineUsers: new Set(),
 
   // Set chats
-  setChats: (chats) => set({ chats }),
+  setChats: (chats) => set({
+    chats: chats.map(chat => ({
+      ...chat,
+      lastMessage: chat.lastMessage || chat.last_message
+    }))
+  }),
 
   // Add or update chat
   addChat: (chat) =>
@@ -37,27 +42,61 @@ export const useChatStore = create((set, get) => ({
 
   // Add message to chat
   addMessage: (chatId, message) =>
-    set((state) => ({
-      messages: {
+    set((state) => {
+      // Update messages
+      const updatedMessages = {
         ...state.messages,
         [chatId]: [...(state.messages[chatId] || []), message],
-      },
-    })),
+      };
+
+      // Update the chat's lastMessage and move it to the top
+      const chatIndex = state.chats.findIndex((chat) => chat.id === chatId);
+      if (chatIndex >= 0) {
+        const updatedChat = { ...state.chats[chatIndex], lastMessage: message };
+        const updatedChats = [
+          updatedChat,
+          ...state.chats.slice(0, chatIndex),
+          ...state.chats.slice(chatIndex + 1),
+        ];
+
+        return {
+          messages: updatedMessages,
+          chats: updatedChats,
+        };
+      }
+
+      return {
+        messages: updatedMessages,
+        chats: state.chats,
+      };
+    }),
 
   // Update message (for optimistic updates)
   updateMessage: (chatId, tempId, message) =>
     set((state) => {
       const chatMessages = state.messages[chatId] || [];
       const index = chatMessages.findIndex((m) => m.tempId === tempId || m.id === tempId);
-      
+
       if (index >= 0) {
         const newMessages = [...chatMessages];
         newMessages[index] = { ...newMessages[index], ...message };
+
+        // If this is the last message, update the chat's lastMessage
+        const isLastMessage = index === chatMessages.length - 1;
+        const updatedChats = isLastMessage
+          ? state.chats.map((chat) =>
+              chat.id === chatId
+                ? { ...chat, lastMessage: newMessages[index] }
+                : chat
+            )
+          : state.chats;
+
         return {
           messages: {
             ...state.messages,
             [chatId]: newMessages,
           },
+          chats: updatedChats,
         };
       }
       return state;
@@ -116,11 +155,23 @@ export const useChatStore = create((set, get) => ({
       const newMessages = chatMessages.map((msg) =>
         msg.id === messageId ? { ...msg, status } : msg
       );
+
+      // If the updated message is the last message, update the chat's lastMessage status
+      const lastMessage = newMessages[newMessages.length - 1];
+      const updatedChats = lastMessage?.id === messageId
+        ? state.chats.map((chat) =>
+            chat.id === chatId
+              ? { ...chat, lastMessage: { ...chat.lastMessage, status } }
+              : chat
+          )
+        : state.chats;
+
       return {
         messages: {
           ...state.messages,
           [chatId]: newMessages,
         },
+        chats: updatedChats,
       };
     }),
 
@@ -129,11 +180,21 @@ export const useChatStore = create((set, get) => ({
     set((state) => {
       const chatMessages = state.messages[chatId] || [];
       const newMessages = chatMessages.filter((msg) => msg.id !== messageId);
+
+      // Update the chat's lastMessage to the new last message
+      const lastMessage = newMessages.length > 0 ? newMessages[newMessages.length - 1] : null;
+      const updatedChats = state.chats.map((chat) =>
+        chat.id === chatId
+          ? { ...chat, lastMessage }
+          : chat
+      );
+
       return {
         messages: {
           ...state.messages,
           [chatId]: newMessages,
         },
+        chats: updatedChats,
       };
     }),
 }));

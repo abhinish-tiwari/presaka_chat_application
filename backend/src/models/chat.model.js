@@ -35,7 +35,7 @@ export const ChatModel = {
   // Get user's chats
   async getUserChats(userId, limit = 20, offset = 0) {
     const result = await query(
-      `SELECT 
+      `SELECT
         c.*,
         (SELECT COUNT(*) FROM messages m WHERE m.chat_id = c.id AND m.deleted_at IS NULL) as message_count,
         (SELECT json_agg(json_build_object(
@@ -47,7 +47,29 @@ export const ChatModel = {
         FROM chat_members cm2
         INNER JOIN users u ON cm2.user_id = u.id
         WHERE cm2.chat_id = c.id AND cm2.user_id != $1 AND cm2.left_at IS NULL
-        ) as members
+        ) as members,
+        (SELECT json_build_object(
+          'id', m.id,
+          'content', m.content,
+          'type', m.type,
+          'senderId', m.sender_id,
+          'createdAt', m.created_at,
+          'status', (
+            SELECT CASE
+              WHEN COUNT(mr.id) = 0 THEN 'sent'
+              WHEN COUNT(mr.id) FILTER (WHERE mr.read_at IS NOT NULL) > 0 THEN 'read'
+              WHEN COUNT(mr.id) FILTER (WHERE mr.delivered_at IS NOT NULL) > 0 THEN 'delivered'
+              ELSE 'sent'
+            END
+            FROM message_receipts mr
+            WHERE mr.message_id = m.id
+          )
+        )
+        FROM messages m
+        WHERE m.chat_id = c.id AND m.deleted_at IS NULL
+        ORDER BY m.created_at DESC
+        LIMIT 1
+        ) as last_message
       FROM chats c
       INNER JOIN chat_members cm ON c.id = cm.chat_id
       WHERE cm.user_id = $1 AND cm.left_at IS NULL
