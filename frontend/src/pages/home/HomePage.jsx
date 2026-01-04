@@ -19,14 +19,14 @@ const HomePage = () => {
             </svg>
           </div>
         </div>
-        
+
         <h2 className="text-2xl font-bold text-gray-900 mb-2">
           Welcome to Preṣaka
         </h2>
         <p className="text-gray-600 mb-6">
           Select a chat from the sidebar to start messaging
         </p>
-        
+
         <div className="text-sm text-gray-500">
           <p>✨ Real-time messaging</p>
           <p>🔒 Secure and private</p>

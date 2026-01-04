@@ -123,5 +123,18 @@ export const useChatStore = create((set, get) => ({
         },
       };
     }),
+
+  // Delete message
+  deleteMessage: (chatId, messageId) =>
+    set((state) => {
+      const chatMessages = state.messages[chatId] || [];
+      const newMessages = chatMessages.filter((msg) => msg.id !== messageId);
+      return {
+        messages: {
+          ...state.messages,
+          [chatId]: newMessages,
+        },
+      };
+    }),
 }));
 

@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { useParams, useLocation } from 'react-router-dom';
 import { useChatStore } from '@store/chatStore';
 import { useAuthStore } from '@store/authStore';
 import { chatService } from '@services/chatService';
@@ -7,15 +7,20 @@ import { useSocket } from '@/contexts/SocketContext';
 import { formatMessageTime } from '@utils/formatters';
 import toast from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
+import MessageActions from '@/components/MessageActions';
 
 const ChatPage = () => {
   const { chatId } = useParams();
+  const location = useLocation();
   const socket = useSocket();
   const { user } = useAuthStore();
   const { messages, setMessages, addMessage, setActiveChat, typingUsers } = useChatStore();
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [hoveredMessageId, setHoveredMessageId] = useState(null);
   const messagesEndRef = useRef(null);
+  const markedAsReadRef = useRef(new Set());
+  const messageRefs = useRef({});
 
   const chatMessages = messages[chatId] || [];
   const chatTypingUsers = typingUsers[chatId] || [];
@@ -26,20 +31,45 @@ const ChatPage = () => {
     loadMessages();
     socket.joinChat(chatId);
 
+    // Clear marked messages when switching chats
+    markedAsReadRef.current = new Set();
+
     return () => {
       socket.leaveChat(chatId);
     };
   }, [chatId]);
 
+  // Mark all unread messages as read when viewing chat
+  const markMessagesAsRead = useCallback(() => {
+    chatMessages.forEach((msg) => {
+      // Only mark messages from others as read
+      if (msg.sender_id !== user.id && msg.senderId !== user.id) {
+        // Check if we haven't already marked this message
+        if (msg.id && !markedAsReadRef.current.has(msg.id)) {
+          socket.markRead(msg.id, chatId);
+          markedAsReadRef.current.add(msg.id);
+        }
+      }
+    });
+  }, [chatMessages, user.id, socket, chatId]);
+
   useEffect(() => {
     scrollToBottom();
-  }, [chatMessages]);
+    markMessagesAsRead();
+  }, [chatMessages, markMessagesAsRead]);
 
   const loadMessages = async () => {
     try {
       setLoading(true);
       const response = await chatService.getChatMessages(chatId);
-      setMessages(chatId, response.messages);
+
+      // Ensure all messages have a status field
+      const messagesWithStatus = response.messages.map(msg => ({
+        ...msg,
+        status: msg.status || 'sent',
+      }));
+
+      setMessages(chatId, messagesWithStatus);
     } catch (error) {
       console.error('Error loading messages:', error);
       toast.error('Failed to load messages');
@@ -50,6 +80,51 @@ const ChatPage = () => {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const scrollToMessage = (messageId) => {
+    const messageElement = messageRefs.current[messageId];
+    if (messageElement) {
+      messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Highlight the message briefly
+      const messageContent = messageElement.querySelector('.message-content');
+      if (messageContent) {
+        messageContent.classList.add('message-highlight');
+        setTimeout(() => {
+          messageContent.classList.remove('message-highlight');
+        }, 2000);
+      }
+    }
+  };
+
+  // Handle message URL navigation
+  useEffect(() => {
+    const hash = location.hash;
+    if (hash.startsWith('#message-')) {
+      const messageId = hash.replace('#message-', '');
+      // Wait for messages to load
+      setTimeout(() => {
+        scrollToMessage(messageId);
+      }, 500);
+    }
+  }, [location.hash, chatMessages]);
+
+  const handleCopyMessageUrl = (msg) => {
+    const messageUrl = `${window.location.origin}/chat/${chatId}#message-${msg.id}`;
+    navigator.clipboard.writeText(messageUrl);
+    toast.success('Message link copied to clipboard');
+    setHoveredMessageId(null);
+  };
+
+  const handleDeleteMessage = async (msg) => {
+    try {
+      socket.deleteMessage(msg.id, chatId);
+      setHoveredMessageId(null);
+      toast.success('Message deleted');
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      toast.error('Failed to delete message');
+    }
   };
 
   const handleSendMessage = (e) => {
@@ -88,29 +163,23 @@ const ChatPage = () => {
     }, 3000);
   };
 
+  // Get other user info from chat
+  const otherUser = chatMessages.find(msg => msg.sender?.id !== user.id)?.sender;
+
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full">
       {/* Chat header */}
-      <div className="px-6 py-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-900">Chat</h2>
+      <div className="px-6 py-4 border-b border-gray-200 bg-white">
+        <h2 className="text-lg font-semibold text-gray-900">
+          {otherUser?.name || otherUser?.phone || 'Chat'}
+        </h2>
+        {isTyping && (
+          <p className="text-sm text-gray-500">typing...</p>
+        )}
       </div>
 
-      {/* Typing indicator */}
-      {isTyping && (
-        <div className="px-6 py-2 bg-gray-50 border-b border-gray-200">
-          <div className="flex items-center space-x-2">
-            <div className="flex space-x-1">
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-            </div>
-            <span className="text-sm text-gray-600">typing...</span>
-          </div>
-        </div>
-      )}
-
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-gray-500">Loading messages...</div>
@@ -125,40 +194,51 @@ const ChatPage = () => {
         ) : (
           chatMessages.map((msg) => {
             const isOwn = msg.sender_id === user.id || msg.senderId === user.id;
+            const isHovered = hoveredMessageId === msg.id;
             return (
               <div
                 key={msg.id || msg.tempId}
-                className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4`}
+                id={`message-${msg.id}`}
+                ref={(el) => {
+                  if (msg.id) messageRefs.current[msg.id] = el;
+                }}
+                className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4 group`}
+                onMouseEnter={() => setHoveredMessageId(msg.id)}
+                onMouseLeave={() => setHoveredMessageId(null)}
               >
-                <div
-                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg shadow ${
-                    isOwn
-                      ? 'bg-blue-500 text-white rounded-br-none'
-                      : 'bg-white text-gray-900 border border-gray-200 rounded-bl-none'
-                  }`}
-                >
-                  {!isOwn && msg.sender && (
-                    <p className="text-xs font-semibold text-gray-600 mb-1">
-                      {msg.sender.name || msg.sender.phone}
-                    </p>
+                <div className={`flex items-center gap-2 ${isOwn ? 'flex-row' : 'flex-row-reverse'}`}>
+                  {/* Three-dot button - appears on opposite side based on message owner */}
+                  {isHovered && msg.id && (
+                    <MessageActions
+                      onCopy={() => handleCopyMessageUrl(msg)}
+                      onDelete={() => handleDeleteMessage(msg)}
+                      canDelete={isOwn}
+                      isOwn={isOwn}
+                    />
                   )}
-                  <p className="text-sm break-words">{msg.content}</p>
-                  <div className="flex items-center justify-end mt-1 space-x-1">
-                    <p
-                      className={`text-xs ${
-                        isOwn ? 'text-blue-100' : 'text-gray-500'
-                      }`}
-                    >
-                      {formatMessageTime(msg.created_at || msg.createdAt)}
-                    </p>
-                    {isOwn && (
-                      <span className="text-xs">
-                        {msg.status === 'sending' && '⏳'}
-                        {msg.status === 'sent' && '✓'}
-                        {msg.status === 'delivered' && '✓✓'}
-                        {msg.status === 'read' && '✓✓'}
-                      </span>
-                    )}
+
+                  <div
+                    className={`message-content max-w-xs lg:max-w-md px-4 py-2 rounded-lg shadow transition-all ${
+                      isOwn
+                        ? 'bg-blue-500 text-white rounded-br-none'
+                        : 'bg-white text-gray-900 border border-gray-200 rounded-bl-none'
+                    }`}
+                  >
+                    <p className="text-sm break-words">{msg.content}</p>
+                    <div className="flex items-center justify-end mt-1 space-x-1">
+                      <p className={`text-xs ${isOwn ? 'text-blue-100' : 'text-gray-500'}`}>
+                        {formatMessageTime(msg.created_at || msg.createdAt)}
+                      </p>
+                      {isOwn && (
+                        <span className="text-xs">
+                          {msg.status === 'sending' && <span className="text-blue-200 opacity-70">⏳</span>}
+                          {msg.status === 'sent' && <span className="text-blue-200">✓</span>}
+                          {msg.status === 'delivered' && <span className="text-blue-100">✓✓</span>}
+                          {msg.status === 'read' && <span className="text-green-300 font-semibold">✓✓</span>}
+                          {!msg.status && <span className="text-blue-200">✓</span>}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -169,7 +249,7 @@ const ChatPage = () => {
       </div>
 
       {/* Message input */}
-      <div className="px-6 py-4 border-t border-gray-200">
+      <div className="px-6 py-4 border-t border-gray-200 bg-white">
         <form onSubmit={handleSendMessage} className="flex space-x-4">
           <input
             type="text"
@@ -181,8 +261,26 @@ const ChatPage = () => {
             placeholder="Type a message..."
             className="input flex-1"
           />
-          <button type="submit" className="btn btn-primary">
-            Send
+          <button
+            type="submit"
+            disabled={!message.trim()}
+            className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed p-3"
+            title="Send message"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              style={{ transform: 'rotate(90deg)' }}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+              />
+            </svg>
           </button>
         </form>
       </div>

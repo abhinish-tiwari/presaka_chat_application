@@ -10,5 +10,8 @@ router.use(authenticate);
 // Get chat messages
 router.get('/chats/:chatId/messages', MessageController.getChatMessages);
 
+// Delete message
+router.delete('/:messageId', MessageController.deleteMessage);
+
 export default router;
 

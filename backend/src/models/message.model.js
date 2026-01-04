@@ -13,17 +13,25 @@ export const MessageModel = {
   // Find message by ID
   async findById(id) {
     const result = await query(
-      `SELECT 
+      `SELECT
         m.*,
         json_build_object(
           'id', u.id,
           'name', u.name,
           'phone', u.phone,
           'avatarUrl', u.avatar_url
-        ) as sender
+        ) as sender,
+        CASE
+          WHEN COUNT(mr.id) = 0 THEN 'sent'
+          WHEN COUNT(mr.id) FILTER (WHERE mr.read_at IS NOT NULL) > 0 THEN 'read'
+          WHEN COUNT(mr.id) FILTER (WHERE mr.delivered_at IS NOT NULL) > 0 THEN 'delivered'
+          ELSE 'sent'
+        END as status
       FROM messages m
       INNER JOIN users u ON m.sender_id = u.id
-      WHERE m.id = $1 AND m.deleted_at IS NULL`,
+      LEFT JOIN message_receipts mr ON m.id = mr.message_id
+      WHERE m.id = $1 AND m.deleted_at IS NULL
+      GROUP BY m.id, u.id, u.name, u.phone, u.avatar_url`,
       [id]
     );
     return result.rows[0];
@@ -32,16 +40,23 @@ export const MessageModel = {
   // Get chat messages
   async getChatMessages(chatId, limit = 50, before = null) {
     let queryText = `
-      SELECT 
+      SELECT
         m.*,
         json_build_object(
           'id', u.id,
           'name', u.name,
           'phone', u.phone,
           'avatarUrl', u.avatar_url
-        ) as sender
+        ) as sender,
+        CASE
+          WHEN COUNT(mr.id) = 0 THEN 'sent'
+          WHEN COUNT(mr.id) FILTER (WHERE mr.read_at IS NOT NULL) > 0 THEN 'read'
+          WHEN COUNT(mr.id) FILTER (WHERE mr.delivered_at IS NOT NULL) > 0 THEN 'delivered'
+          ELSE 'sent'
+        END as status
       FROM messages m
       INNER JOIN users u ON m.sender_id = u.id
+      LEFT JOIN message_receipts mr ON m.id = mr.message_id
       WHERE m.chat_id = $1 AND m.deleted_at IS NULL
     `;
 
@@ -52,6 +67,7 @@ export const MessageModel = {
       params.push(before);
     }
 
+    queryText += ` GROUP BY m.id, u.id, u.name, u.phone, u.avatar_url`;
     queryText += ` ORDER BY m.created_at DESC LIMIT $${params.length + 1}`;
     params.push(limit);
 

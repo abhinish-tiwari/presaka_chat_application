@@ -53,3 +53,17 @@
   background: #555;
 }
 
+/* Message highlight animation */
+@keyframes messageHighlight {
+  0% {
+    background-color: #fef3c7;
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.message-highlight {
+  animation: messageHighlight 2s ease-in-out;
+}
+

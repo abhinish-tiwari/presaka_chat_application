@@ -103,6 +103,10 @@ class SocketService {
     this.emit('message:read', { messageId, chatId });
   }
 
+  deleteMessage(messageId, chatId) {
+    this.emit('message:delete', { messageId, chatId });
+  }
+
   // Typing events
   startTyping(chatId) {
     this.emit('typing:start', { chatId });

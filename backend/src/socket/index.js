@@ -126,11 +126,11 @@ export const setupSocketIO = (io) => {
           // Send acknowledgment to sender
           socket.emit('message:sent', {
             tempId,
-            message: { ...fullMessage, status: 'sent' },
+            message: { ...fullMessage, chatId, status: 'sent' },
           });
 
           // Broadcast to chat members
-          socket.to(`chat:${chatId}`).emit('message:receive', fullMessage);
+          socket.to(`chat:${chatId}`).emit('message:receive', { ...fullMessage, chatId });
 
           // Update chat timestamp
           await ChatModel.update(chatId, { updated_at: new Date() });
@@ -144,35 +144,50 @@ export const setupSocketIO = (io) => {
       // Handle message delivered
       socket.on('message:delivered', async ({ messageId, chatId }) => {
         try {
-          await MessageModel.markDelivered(messageId, socket.userId);
-          
-          // Notify sender
-          const message = await MessageModel.findById(messageId);
-          if (message) {
+          if (!messageId || !chatId) {
+            logger.warn('Invalid message:delivered event', { messageId, chatId });
+            return;
+          }
+
+          const result = await MessageModel.markDelivered(messageId, socket.userId);
+
+          // Only notify if update was successful
+          if (result) {
             io.to(`chat:${chatId}`).emit('message:status', {
               messageId,
+              chatId,
               status: 'delivered',
               timestamp: new Date().toISOString(),
             });
           }
         } catch (error) {
-          logger.error('Error marking message delivered:', error);
+          logger.error('Error marking message delivered:', error.message);
+          // Don't crash, just log the error
         }
       });
 
       // Handle message read
       socket.on('message:read', async ({ messageId, chatId }) => {
         try {
-          await MessageModel.markRead(messageId, socket.userId);
-          
-          // Notify sender
-          io.to(`chat:${chatId}`).emit('message:status', {
-            messageId,
-            status: 'read',
-            timestamp: new Date().toISOString(),
-          });
+          if (!messageId || !chatId) {
+            logger.warn('Invalid message:read event', { messageId, chatId });
+            return;
+          }
+
+          const result = await MessageModel.markRead(messageId, socket.userId);
+
+          // Only notify if update was successful
+          if (result) {
+            io.to(`chat:${chatId}`).emit('message:status', {
+              messageId,
+              chatId,
+              status: 'read',
+              timestamp: new Date().toISOString(),
+            });
+          }
         } catch (error) {
-          logger.error('Error marking message read:', error);
+          logger.error('Error marking message read:', error.message);
+          // Don't crash, just log the error
         }
       });
 
@@ -199,6 +214,44 @@ export const setupSocketIO = (io) => {
           });
         } catch (error) {
           logger.error('Error handling typing stop:', error);
+        }
+      });
+
+      // Handle message delete
+      socket.on('message:delete', async ({ messageId, chatId }) => {
+        try {
+          if (!messageId || !chatId) {
+            logger.warn('Invalid message:delete event', { messageId, chatId });
+            return;
+          }
+
+          // Get message to verify ownership
+          const message = await MessageModel.findById(messageId);
+          if (!message) {
+            socket.emit('error', { code: 'NOT_FOUND', message: 'Message not found' });
+            return;
+          }
+
+          // Only sender can delete their own message
+          if (message.sender_id !== socket.userId) {
+            socket.emit('error', { code: 'FORBIDDEN', message: 'You can only delete your own messages' });
+            return;
+          }
+
+          // Soft delete the message
+          await MessageModel.delete(messageId);
+
+          // Notify all users in the chat
+          io.to(`chat:${chatId}`).emit('message:deleted', {
+            messageId,
+            chatId,
+            timestamp: new Date().toISOString(),
+          });
+
+          logger.info('Message deleted:', { messageId, chatId, userId: socket.userId });
+        } catch (error) {
+          logger.error('Error deleting message:', error.message);
+          socket.emit('error', { code: 'DELETE_FAILED', message: 'Failed to delete message' });
         }
       });
 

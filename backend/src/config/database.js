@@ -9,9 +9,9 @@ export const connectDB = async () => {
   try {
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      max: 20,
+      max: 30, // Increased pool size
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      connectionTimeoutMillis: 10000, // Increased timeout to 10 seconds
     });
 
     // Test connection

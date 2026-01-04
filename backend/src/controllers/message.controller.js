@@ -30,5 +30,33 @@ export const MessageController = {
       next(error);
     }
   },
+
+  // Delete message
+  async deleteMessage(req, res, next) {
+    try {
+      const { messageId } = req.params;
+
+      // Get message to verify ownership
+      const message = await MessageModel.findById(messageId);
+      if (!message) {
+        throw new AppError('Message not found', 404, 'NOT_FOUND');
+      }
+
+      // Only sender can delete their own message
+      if (message.sender_id !== req.user.id) {
+        throw new AppError('You can only delete your own messages', 403, 'FORBIDDEN');
+      }
+
+      // Soft delete the message
+      await MessageModel.delete(messageId);
+
+      res.status(200).json({
+        success: true,
+        message: 'Message deleted successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
 };
 

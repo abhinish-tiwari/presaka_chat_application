@@ -16,7 +16,7 @@ export const useSocket = () => {
 
 export const SocketProvider = ({ children }) => {
   const { accessToken } = useAuthStore();
-  const { addMessage, updateMessage, setTypingUsers, setUserOnline, setUserOffline, updateMessageStatus } = useChatStore();
+  const { addMessage, updateMessage, setTypingUsers, setUserOnline, setUserOffline, updateMessageStatus, deleteMessage } = useChatStore();
 
   useEffect(() => {
     if (!accessToken) return;
@@ -26,12 +26,29 @@ export const SocketProvider = ({ children }) => {
 
     // Setup event listeners
     socketService.on('message:receive', (message) => {
-      addMessage(message.chatId, message);
+      const chatId = message.chatId || message.chat_id;
+      console.log('Message received:', message, 'chatId:', chatId);
+
+      // Ensure message has a status field
+      const messageWithStatus = {
+        ...message,
+        status: message.status || 'sent',
+      };
+
+      addMessage(chatId, messageWithStatus);
+
+      // Automatically mark as delivered
+      if (message.id) {
+        socketService.markDelivered(message.id, chatId);
+      }
+
       toast.success('New message received');
     });
 
     socketService.on('message:sent', ({ tempId, message }) => {
-      updateMessage(message.chatId, tempId, message);
+      const chatId = message.chatId || message.chat_id;
+      console.log('Message sent confirmation:', message, 'chatId:', chatId);
+      updateMessage(chatId, tempId, message);
     });
 
     socketService.on('message:status', ({ messageId, status, chatId }) => {
@@ -73,6 +90,12 @@ export const SocketProvider = ({ children }) => {
       console.log('User offline:', userId, lastSeen);
     });
 
+    socketService.on('message:deleted', ({ messageId, chatId }) => {
+      deleteMessage(chatId, messageId);
+      console.log('Message deleted:', messageId);
+      toast.success('Message deleted');
+    });
+
     socketService.on('error', (error) => {
       console.error('Socket error:', error);
       toast.error(error.message || 'Socket error occurred');
@@ -82,7 +105,7 @@ export const SocketProvider = ({ children }) => {
     return () => {
       socketService.disconnect();
     };
-  }, [accessToken, addMessage, updateMessage, setTypingUsers, setUserOnline, setUserOffline, updateMessageStatus]);
+  }, [accessToken, addMessage, updateMessage, setTypingUsers, setUserOnline, setUserOffline, updateMessageStatus, deleteMessage]);
 
   return (
     <SocketContext.Provider value={socketService}>

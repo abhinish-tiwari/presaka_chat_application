@@ -28,5 +28,11 @@ export const chatService = {
     });
     return response.data;
   },
+
+  // Delete message
+  async deleteMessage(messageId) {
+    const response = await api.delete(`/messages/${messageId}`);
+    return response.data;
+  },
 };
 
