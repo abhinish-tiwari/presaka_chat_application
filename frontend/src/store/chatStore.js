@@ -6,6 +6,7 @@ export const useChatStore = create((set, get) => ({
   messages: {},
   typingUsers: {},
   unreadCounts: {},
+  onlineUsers: new Set(),
 
   // Set chats
   setChats: (chats) => set({ chats }),
@@ -88,5 +89,39 @@ export const useChatStore = create((set, get) => ({
         [chatId]: 0,
       },
     })),
+
+  // Set user online
+  setUserOnline: (userId) =>
+    set((state) => {
+      const newOnlineUsers = new Set(state.onlineUsers);
+      newOnlineUsers.add(userId);
+      return { onlineUsers: newOnlineUsers };
+    }),
+
+  // Set user offline
+  setUserOffline: (userId) =>
+    set((state) => {
+      const newOnlineUsers = new Set(state.onlineUsers);
+      newOnlineUsers.delete(userId);
+      return { onlineUsers: newOnlineUsers };
+    }),
+
+  // Check if user is online
+  isUserOnline: (userId) => get().onlineUsers.has(userId),
+
+  // Update message status
+  updateMessageStatus: (chatId, messageId, status) =>
+    set((state) => {
+      const chatMessages = state.messages[chatId] || [];
+      const newMessages = chatMessages.map((msg) =>
+        msg.id === messageId ? { ...msg, status } : msg
+      );
+      return {
+        messages: {
+          ...state.messages,
+          [chatId]: newMessages,
+        },
+      };
+    }),
 }));
 

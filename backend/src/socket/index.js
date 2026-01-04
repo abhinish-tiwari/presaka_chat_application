@@ -46,16 +46,38 @@ export const setupSocketIO = (io) => {
       // Update last seen in database
       await UserModel.updateLastSeen(socket.userId);
 
-      // Notify contacts that user is online
-      socket.broadcast.emit('user:online', {
-        userId: socket.userId,
-        timestamp: new Date().toISOString(),
-      });
-
       // Join user's chats
       const chats = await ChatModel.getUserChats(socket.userId, 100, 0);
       chats.forEach(chat => {
         socket.join(`chat:${chat.id}`);
+      });
+
+      // Get all online users from chats and send to newly connected user
+      const onlineUserIds = new Set();
+      for (const chat of chats) {
+        const chatMembers = chat.members || [];
+        for (const member of chatMembers) {
+          if (member.id !== socket.userId) {
+            const presence = await redis.get(`presence:${member.id}`);
+            if (presence) {
+              const presenceData = JSON.parse(presence);
+              if (presenceData.status === 'online') {
+                onlineUserIds.add(member.id);
+              }
+            }
+          }
+        }
+      }
+
+      // Send list of online users to the newly connected user
+      socket.emit('users:online', {
+        userIds: Array.from(onlineUserIds),
+      });
+
+      // Notify contacts that user is online
+      socket.broadcast.emit('user:online', {
+        userId: socket.userId,
+        timestamp: new Date().toISOString(),
       });
 
       // Handle chat join
@@ -91,10 +113,20 @@ export const setupSocketIO = (io) => {
           const message = await MessageModel.create(chatId, socket.userId, content, type);
           const fullMessage = await MessageModel.findById(message.id);
 
+          // Create receipts for all chat members except sender
+          const chat = await ChatModel.getChatWithMembers(chatId);
+          if (chat && chat.members) {
+            for (const member of chat.members) {
+              if (member.id !== socket.userId) {
+                await MessageModel.createReceipt(message.id, member.id);
+              }
+            }
+          }
+
           // Send acknowledgment to sender
           socket.emit('message:sent', {
             tempId,
-            message: fullMessage,
+            message: { ...fullMessage, status: 'sent' },
           });
 
           // Broadcast to chat members

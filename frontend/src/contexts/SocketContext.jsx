@@ -16,7 +16,7 @@ export const useSocket = () => {
 
 export const SocketProvider = ({ children }) => {
   const { accessToken } = useAuthStore();
-  const { addMessage, updateMessage, setTypingUsers } = useChatStore();
+  const { addMessage, updateMessage, setTypingUsers, setUserOnline, setUserOffline, updateMessageStatus } = useChatStore();
 
   useEffect(() => {
     if (!accessToken) return;
@@ -34,14 +34,17 @@ export const SocketProvider = ({ children }) => {
       updateMessage(message.chatId, tempId, message);
     });
 
-    socketService.on('message:status', ({ messageId, status }) => {
+    socketService.on('message:status', ({ messageId, status, chatId }) => {
       // Update message status in store
+      if (chatId && messageId) {
+        updateMessageStatus(chatId, messageId, status);
+      }
       console.log('Message status updated:', messageId, status);
     });
 
     socketService.on('user:typing', ({ chatId, userId }) => {
       setTypingUsers(chatId, [userId]);
-      
+
       // Auto-clear after 3 seconds
       setTimeout(() => {
         setTypingUsers(chatId, []);
@@ -52,11 +55,21 @@ export const SocketProvider = ({ children }) => {
       setTypingUsers(chatId, []);
     });
 
+    // Handle bulk online users list (sent on connect)
+    socketService.on('users:online', ({ userIds }) => {
+      console.log('Online users:', userIds);
+      userIds.forEach(userId => setUserOnline(userId));
+    });
+
+    // Handle single user coming online
     socketService.on('user:online', ({ userId }) => {
+      setUserOnline(userId);
       console.log('User online:', userId);
     });
 
+    // Handle user going offline
     socketService.on('user:offline', ({ userId, lastSeen }) => {
+      setUserOffline(userId);
       console.log('User offline:', userId, lastSeen);
     });
 
@@ -69,7 +82,7 @@ export const SocketProvider = ({ children }) => {
     return () => {
       socketService.disconnect();
     };
-  }, [accessToken, addMessage, updateMessage, setTypingUsers]);
+  }, [accessToken, addMessage, updateMessage, setTypingUsers, setUserOnline, setUserOffline, updateMessageStatus]);
 
   return (
     <SocketContext.Provider value={socketService}>
