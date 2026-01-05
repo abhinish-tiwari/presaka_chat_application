@@ -92,7 +92,32 @@ Preṣaka is a modern, real-time chat application built with an **India-first, g
 - Redis >= 6.0
 - npm or yarn
 
-### Installation
+### Quick Setup (Recommended)
+
+**Windows:**
+```cmd
+# Clone the repository
+git clone https://github.com/your-org/presaka.git
+cd presaka
+
+# Run automated setup script
+.\scripts\setup.bat
+```
+
+**Linux/macOS:**
+```bash
+# Clone the repository
+git clone https://github.com/your-org/presaka.git
+cd presaka
+
+# Make scripts executable
+chmod +x scripts/*.sh
+
+# Run automated setup script
+./scripts/setup.sh
+```
+
+### Manual Installation
 
 ```bash
 # Clone the repository
@@ -108,48 +133,113 @@ cd ../frontend
 npm install
 ```
 
+### Database Setup
+
+```bash
+# Create PostgreSQL database
+createdb presaka
+
+# Run database schema
+psql -d presaka -f backend/src/database/schema.sql
+```
+
 ### Configuration
 
 ```bash
-# Copy environment files
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env
+# Backend environment
+cd backend
+cp .env.example .env
+# Edit .env with your configuration (database, Redis, JWT secrets, SMS provider)
 
-# Edit the .env files with your configuration
+# Frontend environment
+cd ../frontend
+cp .env.example .env
+# Edit .env with API and WebSocket URLs (default values work for local development)
 ```
 
 ### Running Locally
 
+**Quick Start (Windows):**
+```cmd
+# Start both servers at once
+.\scripts\start-all.bat
+```
+
+**Quick Start (Linux/macOS):**
+```bash
+# Start both servers at once
+./scripts/start-all.sh
+```
+
+**Manual Start:**
 ```bash
 # Terminal 1 - Start Redis
 redis-server
 
-# Terminal 2 - Start PostgreSQL
-# (or use your existing PostgreSQL service)
+# Terminal 2 - Start PostgreSQL (if not running as service)
+# PostgreSQL should be running on port 5432
 
 # Terminal 3 - Start Backend
 cd backend
 npm run dev
+# Backend will run on http://localhost:5000
 
 # Terminal 4 - Start Frontend
 cd frontend
 npm run dev
+# Frontend will run on http://localhost:5173
 ```
 
 Visit `http://localhost:5173` to see the application.
+
+**Note:** In development mode, OTP codes are logged to the backend console instead of being sent via SMS.
+
+### Useful Scripts
+
+All scripts are located in the `scripts/` folder:
+
+- **`setup.bat/sh`** - Complete project setup
+- **`start-all.bat/sh`** - Start both servers
+- **`start-backend.bat`** - Start backend only
+- **`start-frontend.bat`** - Start frontend only
+- **`clean.bat/sh`** - Clean and reinstall dependencies
+- **`db-reset.bat/sh`** - Reset database with fresh schema
+
+See [scripts/README.md](scripts/README.md) for detailed documentation.
 
 ---
 
 ## 📚 Documentation
 
-- [Architecture Overview](docs/ARCHITECTURE.md)
-- [Authentication Flow](docs/AUTHENTICATION.md)
-- [Database Schema](docs/DATABASE.md)
-- [API Documentation](docs/API.md)
-- [WebSocket Events](docs/WEBSOCKET.md)
-- [Deployment Guide](docs/DEPLOYMENT.md)
-- [Security Practices](docs/SECURITY.md)
-- [Contributing Guide](CONTRIBUTING.md)
+### Quick Links
+- **[Documentation Index](docs/README.md)** - Complete documentation overview
+- **[Quick Start Guide](docs/setup/QUICK_START.md)** - Detailed setup instructions
+- **[Scripts Documentation](scripts/README.md)** - All available scripts
+
+### By Category
+- **Setup & Deployment**
+  - [Quick Start](docs/setup/QUICK_START.md)
+  - [Deployment Guide](docs/setup/DEPLOYMENT.md)
+  - [SMS Setup](docs/setup/SMS_SETUP_GUIDE.md)
+
+- **API & Integration**
+  - [REST API](docs/api/API.md)
+  - [WebSocket Events](docs/api/WEBSOCKET.md)
+  - [Authentication Flow](docs/api/AUTHENTICATION.md)
+
+- **Architecture & Design**
+  - [System Architecture](docs/architecture/ARCHITECTURE.md)
+  - [Database Schema](docs/architecture/DATABASE.md)
+  - [Security Practices](docs/architecture/SECURITY.md)
+  - [Technical Specification](docs/architecture/TECHNICAL_SPEC.md)
+
+- **Features & Planning**
+  - [Feature Roadmap](docs/features/REMAINING_FEATURES.md)
+  - [Technical Improvements](docs/features/TECHNICAL_IMPROVEMENTS.md)
+  - [Product Roadmap](docs/guides/ROADMAP.md)
+
+- **Contributing**
+  - [Contributing Guide](CONTRIBUTING.md)
 
 ---
 
