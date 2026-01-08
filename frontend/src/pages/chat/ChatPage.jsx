@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { useChatStore } from '@store/chatStore';
 import { useAuthStore } from '@store/authStore';
@@ -23,10 +23,32 @@ const ChatPage = () => {
   const messagesEndRef = useRef(null);
   const markedAsReadRef = useRef(new Set());
   const messageRefs = useRef({});
+  const typingTimeoutRef = useRef(null);
+  const isTypingRef = useRef(false);
 
-  const chatMessages = messages[chatId] || [];
-  const chatTypingUsers = typingUsers[chatId] || [];
+  const chatMessages = useMemo(() => messages[chatId] || [], [messages, chatId]);
+  const chatTypingUsers = useMemo(() => typingUsers[chatId] || [], [typingUsers, chatId]);
   const isTyping = chatTypingUsers.length > 0;
+
+  const loadMessages = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await chatService.getChatMessages(chatId);
+
+      // Ensure all messages have a status field
+      const messagesWithStatus = response.messages.map(msg => ({
+        ...msg,
+        status: msg.status || 'sent',
+      }));
+
+      setMessages(chatId, messagesWithStatus);
+    } catch (error) {
+      console.error('Error loading messages:', error);
+      toast.error('Failed to load messages');
+    } finally {
+      setLoading(false);
+    }
+  }, [chatId, setMessages]);
 
   useEffect(() => {
     setActiveChat(chatId);
@@ -38,8 +60,18 @@ const ChatPage = () => {
 
     return () => {
       socket.leaveChat(chatId);
+
+      // Clean up typing indicator
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+      if (isTypingRef.current) {
+        socket.stopTyping(chatId);
+        isTypingRef.current = false;
+      }
     };
-  }, [chatId]);
+  }, [chatId, setActiveChat, loadMessages, socket]);
 
   // Mark all unread messages as read when viewing chat
   const markMessagesAsRead = useCallback(() => {
@@ -59,26 +91,6 @@ const ChatPage = () => {
     scrollToBottom();
     markMessagesAsRead();
   }, [chatMessages, markMessagesAsRead]);
-
-  const loadMessages = async () => {
-    try {
-      setLoading(true);
-      const response = await chatService.getChatMessages(chatId);
-
-      // Ensure all messages have a status field
-      const messagesWithStatus = response.messages.map(msg => ({
-        ...msg,
-        status: msg.status || 'sent',
-      }));
-
-      setMessages(chatId, messagesWithStatus);
-    } catch (error) {
-      console.error('Error loading messages:', error);
-      toast.error('Failed to load messages');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -131,7 +143,7 @@ const ChatPage = () => {
 
   const handleSendMessage = (e) => {
     e.preventDefault();
-    
+
     if (!message.trim()) return;
 
     const tempId = uuidv4();
@@ -152,16 +164,37 @@ const ChatPage = () => {
     // Send via socket
     socket.sendMessage(chatId, message, 'text', tempId);
 
+    // Stop typing indicator
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+    if (isTypingRef.current) {
+      socket.stopTyping(chatId);
+      isTypingRef.current = false;
+    }
+
     // Clear input
     setMessage('');
   };
 
   const handleTyping = () => {
-    socket.startTyping(chatId);
+    // Only send typing:start if not already typing
+    if (!isTypingRef.current) {
+      socket.startTyping(chatId);
+      isTypingRef.current = true;
+    }
 
-    // Auto-stop after 3 seconds
-    setTimeout(() => {
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Set new timeout to stop typing after 3 seconds of inactivity
+    typingTimeoutRef.current = setTimeout(() => {
       socket.stopTyping(chatId);
+      isTypingRef.current = false;
+      typingTimeoutRef.current = null;
     }, 3000);
   };
 
@@ -180,9 +213,6 @@ const ChatPage = () => {
         <h2 className="text-lg font-semibold text-gray-900">
           {otherUser?.name || otherUser?.phone || 'Chat'}
         </h2>
-        {isTyping && (
-          <p className="text-sm text-gray-500">typing...</p>
-        )}
       </div>
 
       {/* Messages */}
@@ -255,6 +285,20 @@ const ChatPage = () => {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Typing indicator */}
+      {isTyping && (
+        <div className="px-6 py-2 bg-gray-50 border-t border-gray-200">
+          <div className="flex items-center space-x-2">
+            <div className="flex space-x-1">
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            </div>
+            <span className="text-sm text-gray-500">{otherUser?.name || 'User'} is typing...</span>
+          </div>
+        </div>
+      )}
+
       {/* Message input */}
       <div className="px-6 py-4 border-t border-gray-200 bg-white">
         <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
@@ -318,4 +362,3 @@ const ChatPage = () => {
 };
 
 export default ChatPage;
-
