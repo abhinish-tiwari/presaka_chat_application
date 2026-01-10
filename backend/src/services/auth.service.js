@@ -1,7 +1,7 @@
 import { getRedis, setWithExpiry, get, del } from '../config/redis.js';
 import { UserModel } from '../models/user.model.js';
-import { generateOTP, hashOTP, verifyOTP, generateRequestId } from '../utils/otp.js';
-import { generateAccessToken, generateRefreshToken } from '../utils/jwt.js';
+import { generateOTP, hashOTP, verifyOTP as verifyOTPUtil, generateRequestId } from '../utils/otp.js';
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt.js';
 import { sendOTP } from './sms.service.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { logger } from '../utils/logger.js';
@@ -66,7 +66,7 @@ export const AuthService = {
       }
 
       // Verify OTP
-      const isValid = await verifyOTP(otp, otpData.hash);
+      const isValid = await verifyOTPUtil(otp, otpData.hash);
 
       if (!isValid) {
         // Increment attempts
@@ -97,14 +97,7 @@ export const AuthService = {
 
       return {
         success: true,
-        user: {
-          id: user.id,
-          phone: user.phone,
-          name: user.name,
-          avatarUrl: user.avatar_url,
-          isVerified: user.is_verified,
-          createdAt: user.created_at,
-        },
+        user,
         tokens: {
           accessToken,
           refreshToken,

@@ -1,4 +1,5 @@
 import { query } from '../config/database.js';
+import { keysToCamel } from '../utils/caseConverter.js';
 
 export const ChatModel = {
   // Create new chat
@@ -7,7 +8,7 @@ export const ChatModel = {
       'INSERT INTO chats (type, name, created_by) VALUES ($1, $2, $3) RETURNING *',
       [type, name, createdBy]
     );
-    return result.rows[0];
+    return keysToCamel(result.rows[0]);
   },
 
   // Find chat by ID
@@ -16,7 +17,7 @@ export const ChatModel = {
       'SELECT * FROM chats WHERE id = $1',
       [id]
     );
-    return result.rows[0];
+    return keysToCamel(result.rows[0]);
   },
 
   // Find private chat between two users
@@ -29,7 +30,7 @@ export const ChatModel = {
       LIMIT 1`,
       [userId1, userId2]
     );
-    return result.rows[0];
+    return keysToCamel(result.rows[0]);
   },
 
   // Get user's chats
@@ -38,16 +39,21 @@ export const ChatModel = {
       `SELECT
         c.*,
         (SELECT COUNT(*) FROM messages m WHERE m.chat_id = c.id AND m.deleted_at IS NULL) as message_count,
-        (SELECT json_agg(json_build_object(
-          'id', u.id,
-          'name', u.name,
-          'phone', u.phone,
-          'avatarUrl', u.avatar_url
-        ))
+        (SELECT COALESCE(
+          json_agg(json_build_object(
+            'id', u.id,
+            'name', u.name,
+            'phone', u.phone,
+            'avatarUrl', u.avatar_url,
+            'isOnline', u.last_seen > NOW() - INTERVAL '5 minutes',
+            'lastSeen', u.last_seen
+          )),
+          '[]'::json
+        )
         FROM chat_members cm2
         INNER JOIN users u ON cm2.user_id = u.id
         WHERE cm2.chat_id = c.id AND cm2.user_id != $1 AND cm2.left_at IS NULL
-        ) as members,
+        ) as participants,
         (SELECT json_build_object(
           'id', m.id,
           'content', m.content,
@@ -69,7 +75,8 @@ export const ChatModel = {
         WHERE m.chat_id = c.id AND m.deleted_at IS NULL
         ORDER BY m.created_at DESC
         LIMIT 1
-        ) as last_message
+        ) as last_message,
+        0 as unread_count
       FROM chats c
       INNER JOIN chat_members cm ON c.id = cm.chat_id
       WHERE cm.user_id = $1 AND cm.left_at IS NULL
@@ -77,21 +84,23 @@ export const ChatModel = {
       LIMIT $2 OFFSET $3`,
       [userId, limit, offset]
     );
-    return result.rows;
+    return keysToCamel(result.rows);
   },
 
   // Get chat with members
   async getChatWithMembers(chatId) {
     const result = await query(
-      `SELECT 
+      `SELECT
         c.*,
         json_agg(json_build_object(
           'id', u.id,
           'name', u.name,
           'phone', u.phone,
           'avatarUrl', u.avatar_url,
+          'isOnline', u.last_seen > NOW() - INTERVAL '5 minutes',
+          'lastSeen', u.last_seen,
           'role', cm.role
-        )) as members
+        )) as participants
       FROM chats c
       INNER JOIN chat_members cm ON c.id = cm.chat_id
       INNER JOIN users u ON cm.user_id = u.id
@@ -99,7 +108,7 @@ export const ChatModel = {
       GROUP BY c.id`,
       [chatId]
     );
-    return result.rows[0];
+    return keysToCamel(result.rows[0]);
   },
 
   // Add member to chat
@@ -108,7 +117,7 @@ export const ChatModel = {
       'INSERT INTO chat_members (chat_id, user_id, role) VALUES ($1, $2, $3) RETURNING *',
       [chatId, userId, role]
     );
-    return result.rows[0];
+    return keysToCamel(result.rows[0]);
   },
 
   // Check if user is member
@@ -138,7 +147,7 @@ export const ChatModel = {
       `UPDATE chats SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING *`,
       values
     );
-    return result.rows[0];
+    return keysToCamel(result.rows[0]);
   },
 };
 

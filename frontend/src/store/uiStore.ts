@@ -1,6 +1,16 @@
 import { create } from 'zustand';
+import { UIState } from '@/types';
 
-export const useUIStore = create((set) => ({
+interface ExtendedUIState extends UIState {
+  isProfileModalOpen: boolean;
+  isNewChatModalOpen: boolean;
+  openProfileModal: () => void;
+  closeProfileModal: () => void;
+  openNewChatModal: () => void;
+  closeNewChatModal: () => void;
+}
+
+export const useUIStore = create<ExtendedUIState>((set) => ({
   isSidebarOpen: true,
   isProfileModalOpen: false,
   isNewChatModalOpen: false,

@@ -1,18 +1,17 @@
 import { create } from 'zustand';
+import { ChatState } from '@/types';
 
-export const useChatStore = create((set, get) => ({
+export const useChatStore = create<ChatState>((set) => ({
   chats: [],
   activeChat: null,
   messages: {},
   typingUsers: {},
-  unreadCounts: {},
-  onlineUsers: new Set(),
 
   // Set chats
   setChats: (chats) => set({
     chats: chats.map(chat => ({
       ...chat,
-      lastMessage: chat.lastMessage || chat.last_message
+      lastMessage: chat.lastMessage
     }))
   }),
 
@@ -102,79 +101,6 @@ export const useChatStore = create((set, get) => ({
       return state;
     }),
 
-  // Set typing users for a chat
-  setTypingUsers: (chatId, userIds) =>
-    set((state) => ({
-      typingUsers: {
-        ...state.typingUsers,
-        [chatId]: userIds,
-      },
-    })),
-
-  // Set unread count for a chat
-  setUnreadCount: (chatId, count) =>
-    set((state) => ({
-      unreadCounts: {
-        ...state.unreadCounts,
-        [chatId]: count,
-      },
-    })),
-
-  // Clear unread count
-  clearUnreadCount: (chatId) =>
-    set((state) => ({
-      unreadCounts: {
-        ...state.unreadCounts,
-        [chatId]: 0,
-      },
-    })),
-
-  // Set user online
-  setUserOnline: (userId) =>
-    set((state) => {
-      const newOnlineUsers = new Set(state.onlineUsers);
-      newOnlineUsers.add(userId);
-      return { onlineUsers: newOnlineUsers };
-    }),
-
-  // Set user offline
-  setUserOffline: (userId) =>
-    set((state) => {
-      const newOnlineUsers = new Set(state.onlineUsers);
-      newOnlineUsers.delete(userId);
-      return { onlineUsers: newOnlineUsers };
-    }),
-
-  // Check if user is online
-  isUserOnline: (userId) => get().onlineUsers.has(userId),
-
-  // Update message status
-  updateMessageStatus: (chatId, messageId, status) =>
-    set((state) => {
-      const chatMessages = state.messages[chatId] || [];
-      const newMessages = chatMessages.map((msg) =>
-        msg.id === messageId ? { ...msg, status } : msg
-      );
-
-      // If the updated message is the last message, update the chat's lastMessage status
-      const lastMessage = newMessages[newMessages.length - 1];
-      const updatedChats = lastMessage?.id === messageId
-        ? state.chats.map((chat) =>
-            chat.id === chatId
-              ? { ...chat, lastMessage: { ...chat.lastMessage, status } }
-              : chat
-          )
-        : state.chats;
-
-      return {
-        messages: {
-          ...state.messages,
-          [chatId]: newMessages,
-        },
-        chats: updatedChats,
-      };
-    }),
-
   // Delete message
   deleteMessage: (chatId, messageId) =>
     set((state) => {
@@ -182,7 +108,7 @@ export const useChatStore = create((set, get) => ({
       const newMessages = chatMessages.filter((msg) => msg.id !== messageId);
 
       // Update the chat's lastMessage to the new last message
-      const lastMessage = newMessages.length > 0 ? newMessages[newMessages.length - 1] : null;
+      const lastMessage = newMessages.length > 0 ? newMessages[newMessages.length - 1] : undefined;
       const updatedChats = state.chats.map((chat) =>
         chat.id === chatId
           ? { ...chat, lastMessage }
@@ -197,5 +123,47 @@ export const useChatStore = create((set, get) => ({
         chats: updatedChats,
       };
     }),
+
+  // Set typing users for a chat
+  setTyping: (chatId, userId, isTyping) =>
+    set((state) => {
+      const currentTyping = state.typingUsers[chatId] || [];
+      const newTyping = isTyping
+        ? [...currentTyping.filter(id => id !== userId), userId]
+        : currentTyping.filter(id => id !== userId);
+
+      return {
+        typingUsers: {
+          ...state.typingUsers,
+          [chatId]: newTyping,
+        },
+      };
+    }),
+
+  // Update chat's last message
+  updateChatLastMessage: (chatId, message) =>
+    set((state) => ({
+      chats: state.chats.map((chat) =>
+        chat.id === chatId ? { ...chat, lastMessage: message } : chat
+      ),
+    })),
+
+  // Increment unread count
+  incrementUnreadCount: (chatId) =>
+    set((state) => ({
+      chats: state.chats.map((chat) =>
+        chat.id === chatId
+          ? { ...chat, unreadCount: chat.unreadCount + 1 }
+          : chat
+      ),
+    })),
+
+  // Reset unread count
+  resetUnreadCount: (chatId) =>
+    set((state) => ({
+      chats: state.chats.map((chat) =>
+        chat.id === chatId ? { ...chat, unreadCount: 0 } : chat
+      ),
+    })),
 }));
 

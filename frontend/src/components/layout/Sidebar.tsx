@@ -6,15 +6,18 @@ import { chatService } from '@services/chatService';
 import NewChatModal from '@components/chat/NewChatModal';
 import ProfileModal from '@components/profile/ProfileModal';
 import toast from 'react-hot-toast';
+import { Chat } from '@/types';
+
+type TabType = 'chats' | 'status' | 'settings';
 
 const Sidebar = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
-  const { chats, setChats, activeChat, isUserOnline } = useChatStore();
+  const { chats, setChats, activeChat } = useChatStore();
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('chats'); // 'chats', 'status', 'settings'
+  const [activeTab, setActiveTab] = useState<TabType>('chats');
 
   useEffect(() => {
     loadChats();
@@ -39,15 +42,15 @@ const Sidebar = () => {
     }
   };
 
-  const handleChatCreated = (newChat) => {
+  const handleChatCreated = (newChat: Chat) => {
     setChats([newChat, ...chats]);
     navigate(`/chat/${newChat.id}`);
   };
 
   const filteredChats = chats.filter(chat => {
-    const member = chat.members?.[0];
-    const name = member?.name?.toLowerCase() || '';
-    const phone = member?.phone?.toLowerCase() || '';
+    const participant = chat.participants?.[0];
+    const name = participant?.name?.toLowerCase() || '';
+    const phone = participant?.phone?.toLowerCase() || '';
     const query = searchQuery.toLowerCase();
     return name.includes(query) || phone.includes(query);
   });
@@ -204,38 +207,38 @@ const Sidebar = () => {
                       <div className="relative flex-shrink-0">
                         <div className="w-12 h-12 rounded-full bg-gray-400 flex items-center justify-center">
                           <span className="text-lg font-semibold text-white">
-                            {chat.members?.[0]?.name?.[0] || chat.members?.[0]?.phone?.[0] || '?'}
+                            {chat.participants?.[0]?.name?.[0] || chat.participants?.[0]?.phone?.[0] || '?'}
                           </span>
                         </div>
                         {/* Online indicator */}
-                        {chat.members?.[0]?.id && isUserOnline(chat.members[0].id) && (
+                        {chat.participants?.[0]?.isOnline && (
                           <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">
-                          {chat.members?.[0]?.name || chat.members?.[0]?.phone || 'Unknown'}
+                          {chat.participants?.[0]?.name || chat.participants?.[0]?.phone || 'Unknown'}
                         </p>
                         <div className="flex items-center gap-1">
                           {/* Show status icon if last message is from current user */}
-                          {(chat.lastMessage?.senderId === user?.id || chat.last_message?.senderId === user?.id) && (
+                          {chat.lastMessage?.senderId === user?.id && (
                             <span className="text-xs flex-shrink-0">
-                              {(chat.lastMessage?.status || chat.last_message?.status) === 'sending' && (
+                              {chat.lastMessage?.status === 'sending' && (
                                 <span className="text-gray-400">⏳</span>
                               )}
-                              {(chat.lastMessage?.status || chat.last_message?.status) === 'sent' && (
+                              {chat.lastMessage?.status === 'sent' && (
                                 <span className="text-gray-400">✓</span>
                               )}
-                              {(chat.lastMessage?.status || chat.last_message?.status) === 'delivered' && (
+                              {chat.lastMessage?.status === 'delivered' && (
                                 <span className="text-gray-500">✓✓</span>
                               )}
-                              {(chat.lastMessage?.status || chat.last_message?.status) === 'read' && (
+                              {chat.lastMessage?.status === 'read' && (
                                 <span className="text-blue-500">✓✓</span>
                               )}
                             </span>
                           )}
                           <p className="text-sm text-gray-500 truncate">
-                            {chat.lastMessage?.content || chat.last_message?.content || 'No messages yet'}
+                            {chat.lastMessage?.content || 'No messages yet'}
                           </p>
                         </div>
                       </div>

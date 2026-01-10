@@ -9,28 +9,31 @@ import toast from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
 import MessageActions from '@/components/MessageActions';
 import EmojiPicker from '@/components/EmojiPicker';
+import { Message } from '@/types';
 
 const ChatPage = () => {
-  const { chatId } = useParams();
+  const { chatId } = useParams<{ chatId: string }>();
   const location = useLocation();
   const socket = useSocket();
   const { user } = useAuthStore();
   const { messages, setMessages, addMessage, setActiveChat, typingUsers } = useChatStore();
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
-  const [hoveredMessageId, setHoveredMessageId] = useState(null);
+  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const messagesEndRef = useRef(null);
-  const markedAsReadRef = useRef(new Set());
-  const messageRefs = useRef({});
-  const typingTimeoutRef = useRef(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const markedAsReadRef = useRef(new Set<string>());
+  const messageRefs = useRef<Record<string, HTMLDivElement>>({});
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isTypingRef = useRef(false);
 
-  const chatMessages = useMemo(() => messages[chatId] || [], [messages, chatId]);
-  const chatTypingUsers = useMemo(() => typingUsers[chatId] || [], [typingUsers, chatId]);
+  const chatMessages = useMemo(() => messages[chatId || ''] || [], [messages, chatId]);
+  const chatTypingUsers = useMemo(() => typingUsers[chatId || ''] || [], [typingUsers, chatId]);
   const isTyping = chatTypingUsers.length > 0;
 
   const loadMessages = useCallback(async () => {
+    if (!chatId) return;
+
     try {
       setLoading(true);
       const response = await chatService.getChatMessages(chatId);
@@ -51,6 +54,8 @@ const ChatPage = () => {
   }, [chatId, setMessages]);
 
   useEffect(() => {
+    if (!chatId) return;
+
     setActiveChat(chatId);
     loadMessages();
     socket.joinChat(chatId);
@@ -75,7 +80,9 @@ const ChatPage = () => {
 
   // Mark all unread messages as read when viewing chat
   const markMessagesAsRead = useCallback(() => {
-    chatMessages.forEach((msg) => {
+    if (!chatId || !user?.id) return;
+
+    chatMessages.forEach((msg: any) => {
       // Only mark messages from others as read
       if (msg.sender_id !== user.id && msg.senderId !== user.id) {
         // Check if we haven't already marked this message
@@ -85,7 +92,7 @@ const ChatPage = () => {
         }
       }
     });
-  }, [chatMessages, user.id, socket, chatId]);
+  }, [chatMessages, user?.id, socket, chatId]);
 
   useEffect(() => {
     scrollToBottom();
@@ -96,7 +103,7 @@ const ChatPage = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const scrollToMessage = (messageId) => {
+  const scrollToMessage = (messageId: string) => {
     const messageElement = messageRefs.current[messageId];
     if (messageElement) {
       messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -123,14 +130,16 @@ const ChatPage = () => {
     }
   }, [location.hash, chatMessages]);
 
-  const handleCopyMessageUrl = (msg) => {
+  const handleCopyMessageUrl = (msg: Message) => {
     const messageUrl = `${window.location.origin}/chat/${chatId}#message-${msg.id}`;
     navigator.clipboard.writeText(messageUrl);
     toast.success('Message link copied to clipboard');
     setHoveredMessageId(null);
   };
 
-  const handleDeleteMessage = async (msg) => {
+  const handleDeleteMessage = async (msg: Message) => {
+    if (!chatId || !msg.id) return;
+
     try {
       socket.deleteMessage(msg.id, chatId);
       setHoveredMessageId(null);
@@ -141,21 +150,21 @@ const ChatPage = () => {
     }
   };
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!message.trim()) return;
+    if (!message.trim() || !chatId || !user) return;
 
     const tempId = uuidv4();
-    const tempMessage = {
+    const tempMessage: Message = {
+      id: tempId,
       tempId,
       chatId,
       senderId: user.id,
       content: message,
-      type: 'text',
-      status: 'sending',
+      status: 'sending' as const,
       createdAt: new Date().toISOString(),
-      sender: user,
+      updatedAt: new Date().toISOString(),
     };
 
     // Add to UI immediately (optimistic update)
@@ -179,6 +188,8 @@ const ChatPage = () => {
   };
 
   const handleTyping = () => {
+    if (!chatId) return;
+
     // Only send typing:start if not already typing
     if (!isTypingRef.current) {
       socket.startTyping(chatId);
@@ -192,19 +203,21 @@ const ChatPage = () => {
 
     // Set new timeout to stop typing after 3 seconds of inactivity
     typingTimeoutRef.current = setTimeout(() => {
-      socket.stopTyping(chatId);
+      if (chatId) {
+        socket.stopTyping(chatId);
+      }
       isTypingRef.current = false;
       typingTimeoutRef.current = null;
     }, 3000);
   };
 
-  const handleEmojiSelect = (emoji) => {
+  const handleEmojiSelect = (emoji: string) => {
     setMessage((prev) => prev + emoji);
     setShowEmojiPicker(false);
   };
 
-  // Get other user info from chat
-  const otherUser = chatMessages.find(msg => msg.sender?.id !== user.id)?.sender;
+  // Get other user info from location state
+  const otherUser = location.state?.otherUser;
 
   return (
     <div className="flex flex-col h-full">
@@ -230,14 +243,14 @@ const ChatPage = () => {
           </div>
         ) : (
           chatMessages.map((msg) => {
-            const isOwn = msg.sender_id === user.id || msg.senderId === user.id;
+            const isOwn = msg.senderId === user?.id;
             const isHovered = hoveredMessageId === msg.id;
             return (
               <div
                 key={msg.id || msg.tempId}
                 id={`message-${msg.id}`}
                 ref={(el) => {
-                  if (msg.id) messageRefs.current[msg.id] = el;
+                  if (msg.id && el) messageRefs.current[msg.id] = el;
                 }}
                 className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4 group`}
                 onMouseEnter={() => setHoveredMessageId(msg.id)}
@@ -264,7 +277,7 @@ const ChatPage = () => {
                     <p className="text-sm break-words">{msg.content}</p>
                     <div className="flex items-center justify-end mt-1 space-x-1">
                       <p className={`text-xs ${isOwn ? 'text-blue-100' : 'text-gray-500'}`}>
-                        {formatMessageTime(msg.created_at || msg.createdAt)}
+                        {formatMessageTime(msg.createdAt)}
                       </p>
                       {isOwn && (
                         <span className="text-xs">

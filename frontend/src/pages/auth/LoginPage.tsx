@@ -1,20 +1,22 @@
-import { useState } from 'react';
+import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@store/authStore';
 import { authService } from '@services/authService';
 import toast from 'react-hot-toast';
 
+type LoginStep = 'phone' | 'otp';
+
 const LoginPage = () => {
   const navigate = useNavigate();
   const { setAuth } = useAuthStore();
-  
-  const [step, setStep] = useState('phone'); // 'phone' or 'otp'
+
+  const [step, setStep] = useState<LoginStep>('phone');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [requestId, setRequestId] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleRequestOTP = async (e) => {
+  const handleRequestOTP = async (e: FormEvent) => {
     e.preventDefault();
     
     if (!phone.match(/^\+91[6-9]\d{9}$/)) {
@@ -28,14 +30,14 @@ const LoginPage = () => {
       setRequestId(response.requestId);
       setStep('otp');
       toast.success('OTP sent successfully!');
-    } catch (error) {
+    } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to send OTP');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerifyOTP = async (e) => {
+  const handleVerifyOTP = async (e: FormEvent) => {
     e.preventDefault();
     
     if (otp.length !== 6) {
@@ -49,9 +51,9 @@ const LoginPage = () => {
       setAuth(response.user, response.tokens.accessToken);
       toast.success('Login successful!');
       navigate('/');
-    } catch (error) {
+    } catch (error: any) {
       toast.error(error.response?.data?.message || 'Invalid OTP');
-    } finally {
+    } finally{
       setLoading(false);
     }
   };

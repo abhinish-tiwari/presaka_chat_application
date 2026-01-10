@@ -1,4 +1,5 @@
 import { query } from '../config/database.js';
+import { keysToCamel } from '../utils/caseConverter.js';
 
 export const MessageModel = {
   // Create new message
@@ -7,7 +8,7 @@ export const MessageModel = {
       'INSERT INTO messages (chat_id, sender_id, content, type, metadata) VALUES ($1, $2, $3, $4, $5) RETURNING *',
       [chatId, senderId, content, type, metadata]
     );
-    return result.rows[0];
+    return keysToCamel(result.rows[0]);
   },
 
   // Find message by ID
@@ -34,7 +35,7 @@ export const MessageModel = {
       GROUP BY m.id, u.id, u.name, u.phone, u.avatar_url`,
       [id]
     );
-    return result.rows[0];
+    return keysToCamel(result.rows[0]);
   },
 
   // Get chat messages
@@ -72,7 +73,7 @@ export const MessageModel = {
     params.push(limit);
 
     const result = await query(queryText, params);
-    return result.rows.reverse();
+    return keysToCamel(result.rows.reverse());
   },
 
   // Create message receipt
@@ -81,31 +82,31 @@ export const MessageModel = {
       'INSERT INTO message_receipts (message_id, user_id) VALUES ($1, $2) ON CONFLICT (message_id, user_id) DO NOTHING RETURNING *',
       [messageId, userId]
     );
-    return result.rows[0];
+    return keysToCamel(result.rows[0]);
   },
 
   // Mark message as delivered
   async markDelivered(messageId, userId) {
     const result = await query(
-      `UPDATE message_receipts 
-      SET delivered_at = CURRENT_TIMESTAMP 
+      `UPDATE message_receipts
+      SET delivered_at = CURRENT_TIMESTAMP
       WHERE message_id = $1 AND user_id = $2 AND delivered_at IS NULL
       RETURNING *`,
       [messageId, userId]
     );
-    return result.rows[0];
+    return keysToCamel(result.rows[0]);
   },
 
   // Mark message as read
   async markRead(messageId, userId) {
     const result = await query(
-      `UPDATE message_receipts 
+      `UPDATE message_receipts
       SET read_at = CURRENT_TIMESTAMP, delivered_at = COALESCE(delivered_at, CURRENT_TIMESTAMP)
       WHERE message_id = $1 AND user_id = $2
       RETURNING *`,
       [messageId, userId]
     );
-    return result.rows[0];
+    return keysToCamel(result.rows[0]);
   },
 
   // Get unread count for chat
@@ -127,7 +128,7 @@ export const MessageModel = {
       'UPDATE messages SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *',
       [id]
     );
-    return result.rows[0];
+    return keysToCamel(result.rows[0]);
   },
 };
 

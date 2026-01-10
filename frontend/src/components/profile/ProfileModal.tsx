@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
-import PropTypes from 'prop-types';
 import { useAuthStore } from '@store/authStore';
 import { userService } from '@services/userService';
 import toast from 'react-hot-toast';
 
-const ProfileModal = ({ isOpen, onClose }) => {
+interface ProfileModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
   const { user, updateUser } = useAuthStore();
   const [name, setName] = useState(user?.name || '');
   const [bio, setBio] = useState(user?.bio || '');
@@ -34,7 +38,7 @@ const ProfileModal = ({ isOpen, onClose }) => {
 
       toast.success('Profile updated successfully');
       setIsEditing(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating profile:', error);
       toast.error(error.response?.data?.message || 'Failed to update profile');
     } finally {
@@ -119,7 +123,7 @@ const ProfileModal = ({ isOpen, onClose }) => {
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                rows="3"
+                rows={3}
                 placeholder="Tell us about yourself"
               />
             ) : (
@@ -161,11 +165,6 @@ const ProfileModal = ({ isOpen, onClose }) => {
       </div>
     </div>
   );
-};
-
-ProfileModal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired,
 };
 
 export default ProfileModal;

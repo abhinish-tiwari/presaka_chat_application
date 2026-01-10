@@ -1,9 +1,10 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
+import { AuthState } from '@/types';
 
-export const useAuthStore = create(
+export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       user: null,
       accessToken: null,
       isAuthenticated: false,
@@ -28,7 +29,7 @@ export const useAuthStore = create(
 
       updateUser: (userData) =>
         set((state) => ({
-          user: { ...state.user, ...userData },
+          user: state.user ? { ...state.user, ...userData } : null,
         })),
     }),
     {

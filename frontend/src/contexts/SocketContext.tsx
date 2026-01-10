@@ -1,10 +1,11 @@
-import { createContext, useContext, useEffect } from 'react';
+import { createContext, useContext, useEffect, ReactNode } from 'react';
 import { socketService } from '@services/socketService';
 import { useAuthStore } from '@store/authStore';
 import { useChatStore } from '@store/chatStore';
 import toast from 'react-hot-toast';
+import { Message, MessageStatus } from '@/types';
 
-const SocketContext = createContext(null);
+const SocketContext = createContext<typeof socketService | null>(null);
 
 export const useSocket = () => {
   const context = useContext(SocketContext);
@@ -14,9 +15,13 @@ export const useSocket = () => {
   return context;
 };
 
-export const SocketProvider = ({ children }) => {
+interface SocketProviderProps {
+  children: ReactNode;
+}
+
+export const SocketProvider = ({ children }: SocketProviderProps) => {
   const { accessToken } = useAuthStore();
-  const { addMessage, updateMessage, setTypingUsers, setUserOnline, setUserOffline, updateMessageStatus, deleteMessage } = useChatStore();
+  const { addMessage, updateMessage, setTyping, deleteMessage } = useChatStore();
 
   useEffect(() => {
     if (!accessToken) return;
@@ -25,12 +30,12 @@ export const SocketProvider = ({ children }) => {
     socketService.connect(accessToken);
 
     // Setup event listeners
-    socketService.on('message:receive', (message) => {
-      const chatId = message.chatId || message.chat_id;
+    socketService.on('message:receive', (message: Message) => {
+      const chatId = message.chatId;
       console.log('Message received:', message, 'chatId:', chatId);
 
       // Ensure message has a status field
-      const messageWithStatus = {
+      const messageWithStatus: Message = {
         ...message,
         status: message.status || 'sent',
       };
@@ -45,58 +50,51 @@ export const SocketProvider = ({ children }) => {
       toast.success('New message received');
     });
 
-    socketService.on('message:sent', ({ tempId, message }) => {
-      const chatId = message.chatId || message.chat_id;
+    socketService.on('message:sent', ({ tempId, message }: { tempId: string; message: Message }) => {
+      const chatId = message.chatId;
       console.log('Message sent confirmation:', message, 'chatId:', chatId);
       updateMessage(chatId, tempId, message);
     });
 
-    socketService.on('message:status', ({ messageId, status, chatId }) => {
-      // Update message status in store
-      if (chatId && messageId) {
-        updateMessageStatus(chatId, messageId, status);
-      }
+    socketService.on('message:status', ({ messageId, status }: { messageId: string; status: MessageStatus; chatId: string }) => {
       console.log('Message status updated:', messageId, status);
     });
 
-    socketService.on('user:typing', ({ chatId, userId }) => {
-      setTypingUsers(chatId, [userId]);
+    socketService.on('user:typing', ({ chatId, userId }: { chatId: string; userId: string }) => {
+      setTyping(chatId, userId, true);
 
       // Auto-clear after 3 seconds
       setTimeout(() => {
-        setTypingUsers(chatId, []);
+        setTyping(chatId, userId, false);
       }, 3000);
     });
 
-    socketService.on('user:stopped-typing', ({ chatId }) => {
-      setTypingUsers(chatId, []);
+    socketService.on('user:stopped-typing', ({ chatId, userId }: { chatId: string; userId: string }) => {
+      setTyping(chatId, userId, false);
     });
 
     // Handle bulk online users list (sent on connect)
-    socketService.on('users:online', ({ userIds }) => {
+    socketService.on('users:online', ({ userIds }: { userIds: string[] }) => {
       console.log('Online users:', userIds);
-      userIds.forEach(userId => setUserOnline(userId));
     });
 
     // Handle single user coming online
-    socketService.on('user:online', ({ userId }) => {
-      setUserOnline(userId);
+    socketService.on('user:online', ({ userId }: { userId: string }) => {
       console.log('User online:', userId);
     });
 
     // Handle user going offline
-    socketService.on('user:offline', ({ userId, lastSeen }) => {
-      setUserOffline(userId);
+    socketService.on('user:offline', ({ userId, lastSeen }: { userId: string; lastSeen: string }) => {
       console.log('User offline:', userId, lastSeen);
     });
 
-    socketService.on('message:deleted', ({ messageId, chatId }) => {
+    socketService.on('message:deleted', ({ messageId, chatId }: { messageId: string; chatId: string }) => {
       deleteMessage(chatId, messageId);
       console.log('Message deleted:', messageId);
       toast.success('Message deleted');
     });
 
-    socketService.on('error', (error) => {
+    socketService.on('error', (error: { message?: string }) => {
       console.error('Socket error:', error);
       toast.error(error.message || 'Socket error occurred');
     });
@@ -105,7 +103,7 @@ export const SocketProvider = ({ children }) => {
     return () => {
       socketService.disconnect();
     };
-  }, [accessToken, addMessage, updateMessage, setTypingUsers, setUserOnline, setUserOffline, updateMessageStatus, deleteMessage]);
+  }, [accessToken, addMessage, updateMessage, setTyping, deleteMessage]);
 
   return (
     <SocketContext.Provider value={socketService}>

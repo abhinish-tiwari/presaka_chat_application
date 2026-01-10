@@ -233,7 +233,7 @@ export const setupSocketIO = (io) => {
           }
 
           // Only sender can delete their own message
-          if (message.sender_id !== socket.userId) {
+          if (message.senderId !== socket.userId) {
             socket.emit('error', { code: 'FORBIDDEN', message: 'You can only delete your own messages' });
             return;
           }

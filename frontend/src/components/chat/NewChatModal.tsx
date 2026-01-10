@@ -1,16 +1,22 @@
 import { useState } from 'react';
-import PropTypes from 'prop-types';
 import { userService } from '@services/userService';
 import { chatService } from '@services/chatService';
 import toast from 'react-hot-toast';
+import { Chat, User } from '@/types';
 
-const NewChatModal = ({ isOpen, onClose, onChatCreated }) => {
+interface NewChatModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onChatCreated: (chat: Chat) => void;
+}
+
+const NewChatModal = ({ isOpen, onClose, onChatCreated }: NewChatModalProps) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
+  const [searchResults, setSearchResults] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  const handleSearch = async (query) => {
+  const handleSearch = async (query: string) => {
     setSearchQuery(query);
     
     if (query.length < 3) {
@@ -30,7 +36,7 @@ const NewChatModal = ({ isOpen, onClose, onChatCreated }) => {
     }
   };
 
-  const handleCreateChat = async (userId) => {
+  const handleCreateChat = async (userId: string) => {
     setCreating(true);
     try {
       const response = await chatService.createPrivateChat(userId);
@@ -39,7 +45,7 @@ const NewChatModal = ({ isOpen, onClose, onChatCreated }) => {
       onClose();
       setSearchQuery('');
       setSearchResults([]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Create chat error:', error);
       toast.error(error.response?.data?.message || 'Failed to create chat');
     } finally {
@@ -122,12 +128,6 @@ const NewChatModal = ({ isOpen, onClose, onChatCreated }) => {
       </div>
     </div>
   );
-};
-
-NewChatModal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired,
-  onChatCreated: PropTypes.func.isRequired,
 };
 
 export default NewChatModal;

@@ -1,13 +1,30 @@
 import { useState, useRef, useEffect } from 'react';
-import PropTypes from 'prop-types';
 
-const EmojiPicker = ({ onEmojiSelect, onClose }) => {
+interface EmojiPickerProps {
+  onEmojiSelect: (emoji: string) => void;
+  onClose: () => void;
+}
+
+interface EmojiItem {
+  emoji: string;
+  keywords: string;
+}
+
+interface EmojiCategory {
+  name: string;
+  icon: string;
+  emojis: EmojiItem[];
+}
+
+type EmojiData = Record<string, EmojiCategory>;
+
+const EmojiPicker = ({ onEmojiSelect, onClose }: EmojiPickerProps) => {
   const [activeCategory, setActiveCategory] = useState('smileys');
   const [searchQuery, setSearchQuery] = useState('');
-  const pickerRef = useRef(null);
+  const pickerRef = useRef<HTMLDivElement | null>(null);
 
   // Emoji data with keywords for search
-  const emojiData = {
+  const emojiData: EmojiData = {
     smileys: {
       name: 'Smileys & People',
       icon: '😊',
@@ -1152,7 +1169,7 @@ const EmojiPicker = ({ onEmojiSelect, onClose }) => {
     }
 
     const query = searchQuery.toLowerCase();
-    const allEmojis = [];
+    const allEmojis: EmojiItem[] = [];
 
     // Search across all categories
     Object.values(emojiData).forEach(category => {
@@ -1168,8 +1185,8 @@ const EmojiPicker = ({ onEmojiSelect, onClose }) => {
 
   // Handle click outside to close
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (pickerRef.current && !pickerRef.current.contains(event.target)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
         onClose();
       }
     };
@@ -1178,7 +1195,7 @@ const EmojiPicker = ({ onEmojiSelect, onClose }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [onClose]);
 
-  const handleEmojiClick = (emojiItem) => {
+  const handleEmojiClick = (emojiItem: EmojiItem) => {
     onEmojiSelect(emojiItem.emoji);
     onClose();
   };
@@ -1293,11 +1310,6 @@ const EmojiPicker = ({ onEmojiSelect, onClose }) => {
       )}
     </div>
   );
-};
-
-EmojiPicker.propTypes = {
-  onEmojiSelect: PropTypes.func.isRequired,
-  onClose: PropTypes.func.isRequired,
 };
 
 export default EmojiPicker;

@@ -1,14 +1,20 @@
 import { useState, useRef, useEffect } from 'react';
-import PropTypes from 'prop-types';
 
-const MessageActions = ({ onCopy, onDelete, canDelete, isOwn }) => {
+interface MessageActionsProps {
+  onCopy: () => void;
+  onDelete: () => void;
+  canDelete: boolean;
+  isOwn: boolean;
+}
+
+const MessageActions = ({ onCopy, onDelete, canDelete, isOwn }: MessageActionsProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const menuRef = useRef(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   // Close menu when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsMenuOpen(false);
       }
     };
@@ -73,13 +79,6 @@ const MessageActions = ({ onCopy, onDelete, canDelete, isOwn }) => {
       )}
     </div>
   );
-};
-
-MessageActions.propTypes = {
-  onCopy: PropTypes.func.isRequired,
-  onDelete: PropTypes.func.isRequired,
-  canDelete: PropTypes.bool.isRequired,
-  isOwn: PropTypes.bool.isRequired,
 };
 
 export default MessageActions;

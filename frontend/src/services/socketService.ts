@@ -1,14 +1,14 @@
-import { io } from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:3000';
 
-class SocketService {
-  constructor() {
-    this.socket = null;
-    this.listeners = new Map();
-  }
+type SocketCallback = (...args: any[]) => void;
 
-  connect(token) {
+class SocketService {
+  private socket: Socket | null = null;
+  private listeners: Map<string, SocketCallback[]> = new Map();
+
+  connect(token: string): Socket {
     if (this.socket?.connected) {
       return this.socket;
     }
@@ -26,21 +26,23 @@ class SocketService {
     return this.socket;
   }
 
-  setupDefaultListeners() {
+  private setupDefaultListeners(): void {
+    if (!this.socket) return;
+
     this.socket.on('connect', () => {
-      console.log('✅ Socket connected:', this.socket.id);
+      console.log('✅ Socket connected:', this.socket?.id);
     });
 
-    this.socket.on('disconnect', (reason) => {
+    this.socket.on('disconnect', (reason: string) => {
       console.log('❌ Socket disconnected:', reason);
     });
 
-    this.socket.on('connect_error', (error) => {
+    this.socket.on('connect_error', (error: Error) => {
       console.error('Socket connection error:', error);
     });
   }
 
-  disconnect() {
+  disconnect(): void {
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
@@ -48,13 +50,13 @@ class SocketService {
     }
   }
 
-  emit(event, data) {
+  emit(event: string, data?: any): void {
     if (this.socket?.connected) {
       this.socket.emit(event, data);
     }
   }
 
-  on(event, callback) {
+  on(event: string, callback: SocketCallback): void {
     if (this.socket) {
       this.socket.on(event, callback);
       
@@ -62,62 +64,64 @@ class SocketService {
       if (!this.listeners.has(event)) {
         this.listeners.set(event, []);
       }
-      this.listeners.get(event).push(callback);
+      this.listeners.get(event)?.push(callback);
     }
   }
 
-  off(event, callback) {
+  off(event: string, callback?: SocketCallback): void {
     if (this.socket) {
       this.socket.off(event, callback);
       
       // Remove from stored listeners
-      if (this.listeners.has(event)) {
+      if (callback && this.listeners.has(event)) {
         const callbacks = this.listeners.get(event);
-        const index = callbacks.indexOf(callback);
-        if (index > -1) {
-          callbacks.splice(index, 1);
+        if (callbacks) {
+          const index = callbacks.indexOf(callback);
+          if (index > -1) {
+            callbacks.splice(index, 1);
+          }
         }
       }
     }
   }
 
   // Chat events
-  joinChat(chatId) {
+  joinChat(chatId: string): void {
     this.emit('chat:join', { chatId });
   }
 
-  leaveChat(chatId) {
+  leaveChat(chatId: string): void {
     this.emit('chat:leave', { chatId });
   }
 
   // Message events
-  sendMessage(chatId, content, type = 'text', tempId) {
+  sendMessage(chatId: string, content: string, type: string = 'text', tempId?: string): void {
     this.emit('message:send', { chatId, content, type, tempId });
   }
 
-  markDelivered(messageId, chatId) {
+  markDelivered(messageId: string, chatId: string): void {
     this.emit('message:delivered', { messageId, chatId });
   }
 
-  markRead(messageId, chatId) {
+  markRead(messageId: string, chatId: string): void {
     this.emit('message:read', { messageId, chatId });
   }
 
-  deleteMessage(messageId, chatId) {
+  deleteMessage(messageId: string, chatId: string): void {
     this.emit('message:delete', { messageId, chatId });
   }
 
   // Typing events
-  startTyping(chatId) {
+  startTyping(chatId: string): void {
     this.emit('typing:start', { chatId });
   }
 
-  stopTyping(chatId) {
+  stopTyping(chatId: string): void {
     this.emit('typing:stop', { chatId });
   }
 
   // Presence events
-  updatePresence(userIds) {
+  updatePresence(userIds: string[]): void {
     this.emit('presence:update', { userIds });
   }
 }

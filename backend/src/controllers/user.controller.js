@@ -6,23 +6,14 @@ export const UserController = {
   async getMe(req, res, next) {
     try {
       const user = await UserModel.findById(req.user.id);
-      
+
       if (!user) {
         throw new AppError('User not found', 404, 'USER_NOT_FOUND');
       }
 
       res.status(200).json({
         success: true,
-        user: {
-          id: user.id,
-          phone: user.phone,
-          name: user.name,
-          avatarUrl: user.avatar_url,
-          bio: user.bio,
-          isVerified: user.is_verified,
-          lastSeen: user.last_seen,
-          createdAt: user.created_at,
-        },
+        user,
       });
     } catch (error) {
       next(error);
@@ -42,13 +33,7 @@ export const UserController = {
 
       res.status(200).json({
         success: true,
-        user: {
-          id: user.id,
-          phone: user.phone,
-          name: user.name,
-          bio: user.bio,
-          updatedAt: user.updated_at,
-        },
+        user,
       });
     } catch (error) {
       next(error);

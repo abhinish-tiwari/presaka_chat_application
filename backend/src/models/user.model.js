@@ -1,13 +1,17 @@
 import { query } from '../config/database.js';
+import { keysToCamel } from '../utils/caseConverter.js';
 
 export const UserModel = {
   // Create new user
   async create(phone) {
+    // Set default name as "User" + last 4 digits of phone
+    const defaultName = `User ${phone.slice(-4)}`;
+
     const result = await query(
-      'INSERT INTO users (phone, is_verified) VALUES ($1, $2) RETURNING *',
-      [phone, true]
+      'INSERT INTO users (phone, name, is_verified) VALUES ($1, $2, $3) RETURNING *',
+      [phone, defaultName, true]
     );
-    return result.rows[0];
+    return keysToCamel(result.rows[0]);
   },
 
   // Find user by ID
@@ -16,7 +20,7 @@ export const UserModel = {
       'SELECT * FROM users WHERE id = $1',
       [id]
     );
-    return result.rows[0];
+    return keysToCamel(result.rows[0]);
   },
 
   // Find user by phone
@@ -25,7 +29,7 @@ export const UserModel = {
       'SELECT * FROM users WHERE phone = $1',
       [phone]
     );
-    return result.rows[0];
+    return keysToCamel(result.rows[0]);
   },
 
   // Update user profile
@@ -46,7 +50,7 @@ export const UserModel = {
       `UPDATE users SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING *`,
       values
     );
-    return result.rows[0];
+    return keysToCamel(result.rows[0]);
   },
 
   // Update last seen
@@ -55,7 +59,7 @@ export const UserModel = {
       'UPDATE users SET last_seen = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *',
       [id]
     );
-    return result.rows[0];
+    return keysToCamel(result.rows[0]);
   },
 
   // Search users by phone
@@ -64,22 +68,22 @@ export const UserModel = {
       'SELECT id, phone, name, avatar_url FROM users WHERE phone LIKE $1 LIMIT 10',
       [`%${phone}%`]
     );
-    return result.rows;
+    return keysToCamel(result.rows);
   },
 
   // Get user with stats
   async getUserWithStats(id) {
     const result = await query(
-      `SELECT 
+      `SELECT
         u.*,
-        COUNT(DISTINCT cm.chat_id) as chat_count
+        COUNT(DISTINCT cm.chat_id) as chatCount
       FROM users u
       LEFT JOIN chat_members cm ON u.id = cm.user_id AND cm.left_at IS NULL
       WHERE u.id = $1
       GROUP BY u.id`,
       [id]
     );
-    return result.rows[0];
+    return keysToCamel(result.rows[0]);
   },
 };
 

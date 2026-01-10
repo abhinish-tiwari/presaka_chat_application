@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from '@store/authStore';
+import { userService } from '@services/userService';
 import { SocketProvider } from '@/contexts/SocketContext';
 
 // Pages
@@ -12,7 +14,23 @@ import ProtectedRoute from '@components/auth/ProtectedRoute';
 import Layout from '@components/layout/Layout';
 
 function App() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, updateUser } = useAuthStore();
+
+  // Fetch latest user data on app load
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (isAuthenticated) {
+        try {
+          const response = await userService.getMe();
+          updateUser(response.user);
+        } catch (error) {
+          console.error('Failed to fetch user data:', error);
+        }
+      }
+    };
+
+    fetchUserData();
+  }, [isAuthenticated, updateUser]);
 
   return (
     <Routes>
