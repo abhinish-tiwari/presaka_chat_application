@@ -114,12 +114,10 @@ export const setupSocketIO = (io) => {
           const fullMessage = await MessageModel.findById(message.id);
 
           // Create receipts for all chat members except sender
-          const chat = await ChatModel.getChatWithMembers(chatId);
+          const chat = await ChatModel.getChatWithMembers(chatId, socket.userId);
           if (chat && chat.participants) {
             for (const participant of chat.participants) {
-              if (participant.id !== socket.userId) {
-                await MessageModel.createReceipt(message.id, participant.id);
-              }
+              await MessageModel.createReceipt(message.id, participant.id);
             }
           }
 

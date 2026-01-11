@@ -88,10 +88,11 @@ export const ChatModel = {
   },
 
   // Get chat with members
-  async getChatWithMembers(chatId) {
+  async getChatWithMembers(chatId, userId = null) {
     const result = await query(
       `SELECT
         c.*,
+        (SELECT COUNT(*) FROM messages m WHERE m.chat_id = c.id AND m.deleted_at IS NULL) as message_count,
         json_agg(json_build_object(
           'id', u.id,
           'name', u.name,
@@ -100,13 +101,36 @@ export const ChatModel = {
           'isOnline', u.last_seen > NOW() - INTERVAL '5 minutes',
           'lastSeen', u.last_seen,
           'role', cm.role
-        )) as participants
+        )) as participants,
+        (SELECT json_build_object(
+          'id', m.id,
+          'content', m.content,
+          'type', m.type,
+          'senderId', m.sender_id,
+          'createdAt', m.created_at,
+          'status', (
+            SELECT CASE
+              WHEN COUNT(mr.id) = 0 THEN 'sent'
+              WHEN COUNT(mr.id) FILTER (WHERE mr.read_at IS NOT NULL) > 0 THEN 'read'
+              WHEN COUNT(mr.id) FILTER (WHERE mr.delivered_at IS NOT NULL) > 0 THEN 'delivered'
+              ELSE 'sent'
+            END
+            FROM message_receipts mr
+            WHERE mr.message_id = m.id
+          )
+        )
+        FROM messages m
+        WHERE m.chat_id = c.id AND m.deleted_at IS NULL
+        ORDER BY m.created_at DESC
+        LIMIT 1
+        ) as last_message,
+        0 as unread_count
       FROM chats c
       INNER JOIN chat_members cm ON c.id = cm.chat_id
       INNER JOIN users u ON cm.user_id = u.id
-      WHERE c.id = $1 AND cm.left_at IS NULL
+      WHERE c.id = $1 AND cm.left_at IS NULL ${userId ? 'AND cm.user_id != $2' : ''}
       GROUP BY c.id`,
-      [chatId]
+      userId ? [chatId, userId] : [chatId]
     );
     return keysToCamel(result.rows[0]);
   },

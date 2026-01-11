@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, ReactNode } from 'react';
 import { socketService } from '@services/socketService';
 import { useAuthStore } from '@store/authStore';
 import { useChatStore } from '@store/chatStore';
+import { chatService } from '@services/chatService';
 import toast from 'react-hot-toast';
 import { Message, MessageStatus } from '@/types';
 
@@ -21,7 +22,7 @@ interface SocketProviderProps {
 
 export const SocketProvider = ({ children }: SocketProviderProps) => {
   const { accessToken } = useAuthStore();
-  const { addMessage, updateMessage, updateMessageStatus, setTyping, deleteMessage } = useChatStore();
+  const { chats, addChat, addMessage, updateMessage, updateMessageStatus, setTyping, deleteMessage } = useChatStore();
 
   useEffect(() => {
     if (!accessToken) return;
@@ -30,9 +31,24 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
     socketService.connect(accessToken);
 
     // Setup event listeners
-    socketService.on('message:receive', (message: Message) => {
+    socketService.on('message:receive', async (message: Message) => {
       const chatId = message.chatId;
       console.log('Message received:', message, 'chatId:', chatId);
+
+      // Check if chat exists in store
+      const chatExists = chats.some(chat => chat.id === chatId);
+
+      // If chat doesn't exist, fetch it from backend
+      if (!chatExists) {
+        try {
+          console.log('Chat not found in store, fetching details for:', chatId);
+          const response = await chatService.getChatDetails(chatId);
+          addChat(response.chat);
+          console.log('Chat added to store:', response.chat);
+        } catch (error) {
+          console.error('Error fetching chat details:', error);
+        }
+      }
 
       // Ensure message has a status field
       const messageWithStatus: Message = {

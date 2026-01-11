@@ -35,7 +35,7 @@ export const ChatController = {
       let chat = await ChatModel.findPrivateChat(req.user.id, recipientId);
 
       if (chat) {
-        const chatWithMembers = await ChatModel.getChatWithMembers(chat.id);
+        const chatWithMembers = await ChatModel.getChatWithMembers(chat.id, req.user.id);
         return res.status(200).json({
           success: true,
           chat: chatWithMembers,
@@ -49,7 +49,7 @@ export const ChatController = {
       await ChatModel.addMember(chat.id, req.user.id, 'member');
       await ChatModel.addMember(chat.id, recipientId, 'member');
 
-      const chatWithMembers = await ChatModel.getChatWithMembers(chat.id);
+      const chatWithMembers = await ChatModel.getChatWithMembers(chat.id, req.user.id);
 
       res.status(201).json({
         success: true,
@@ -71,7 +71,7 @@ export const ChatController = {
         throw new AppError('Access denied', 403, 'FORBIDDEN');
       }
 
-      const chat = await ChatModel.getChatWithMembers(chatId);
+      const chat = await ChatModel.getChatWithMembers(chatId, req.user.id);
 
       if (!chat) {
         throw new AppError('Chat not found', 404, 'CHAT_NOT_FOUND');
