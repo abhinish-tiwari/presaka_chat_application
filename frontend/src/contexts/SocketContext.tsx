@@ -21,7 +21,7 @@ interface SocketProviderProps {
 
 export const SocketProvider = ({ children }: SocketProviderProps) => {
   const { accessToken } = useAuthStore();
-  const { addMessage, updateMessage, setTyping, deleteMessage } = useChatStore();
+  const { addMessage, updateMessage, updateMessageStatus, setTyping, deleteMessage } = useChatStore();
 
   useEffect(() => {
     if (!accessToken) return;
@@ -56,8 +56,9 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
       updateMessage(chatId, tempId, message);
     });
 
-    socketService.on('message:status', ({ messageId, status }: { messageId: string; status: MessageStatus; chatId: string }) => {
-      console.log('Message status updated:', messageId, status);
+    socketService.on('message:status', ({ messageId, status, chatId }: { messageId: string; status: MessageStatus; chatId: string }) => {
+      console.log('Message status updated:', messageId, status, 'chatId:', chatId);
+      updateMessageStatus(chatId, messageId, status);
     });
 
     socketService.on('user:typing', ({ chatId, userId }: { chatId: string; userId: string }) => {
@@ -103,7 +104,7 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
     return () => {
       socketService.disconnect();
     };
-  }, [accessToken, addMessage, updateMessage, setTyping, deleteMessage]);
+  }, [accessToken, addMessage, updateMessage, updateMessageStatus, setTyping, deleteMessage]);
 
   return (
     <SocketContext.Provider value={socketService}>

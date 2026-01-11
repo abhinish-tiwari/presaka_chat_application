@@ -101,6 +101,44 @@ export const useChatStore = create<ChatState>((set) => ({
       return state;
     }),
 
+  // Update message status by message ID
+  updateMessageStatus: (chatId, messageId, status) =>
+    set((state) => {
+      const chatMessages = state.messages[chatId] || [];
+      const index = chatMessages.findIndex((m) => m.id === messageId);
+
+      console.log('[ChatStore] updateMessageStatus called:', { chatId, messageId, status, foundIndex: index, totalMessages: chatMessages.length });
+
+      if (index >= 0) {
+        const newMessages = [...chatMessages];
+        const oldStatus = newMessages[index].status;
+        newMessages[index] = { ...newMessages[index], status };
+
+        console.log('[ChatStore] Message status updated:', { messageId, oldStatus, newStatus: status });
+
+        // If this is the last message, update the chat's lastMessage
+        const isLastMessage = index === chatMessages.length - 1;
+        const updatedChats = isLastMessage
+          ? state.chats.map((chat) =>
+              chat.id === chatId
+                ? { ...chat, lastMessage: newMessages[index] }
+                : chat
+            )
+          : state.chats;
+
+        return {
+          messages: {
+            ...state.messages,
+            [chatId]: newMessages,
+          },
+          chats: updatedChats,
+        };
+      } else {
+        console.warn('[ChatStore] Message not found for status update:', { chatId, messageId, availableIds: chatMessages.map(m => m.id) });
+      }
+      return state;
+    }),
+
   // Delete message
   deleteMessage: (chatId, messageId) =>
     set((state) => {

@@ -16,7 +16,7 @@ const ChatPage = () => {
   const location = useLocation();
   const socket = useSocket();
   const { user } = useAuthStore();
-  const { messages, setMessages, addMessage, setActiveChat, typingUsers } = useChatStore();
+  const { messages, setMessages, addMessage, setActiveChat, typingUsers, chats, addChat } = useChatStore();
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
@@ -30,6 +30,38 @@ const ChatPage = () => {
   const chatMessages = useMemo(() => messages[chatId || ''] || [], [messages, chatId]);
   const chatTypingUsers = useMemo(() => typingUsers[chatId || ''] || [], [typingUsers, chatId]);
   const isTyping = chatTypingUsers.length > 0;
+
+  // Get current chat from store
+  const currentChat = useMemo(() => {
+    return chats.find(chat => chat.id === chatId);
+  }, [chats, chatId]);
+
+  // Get other user info - prioritize location state, fallback to chat store
+  const otherUser = useMemo(() => {
+    if (location.state?.otherUser) {
+      return location.state.otherUser;
+    }
+
+    // Get from chat participants
+    if (currentChat?.participants) {
+      return currentChat.participants.find(p => p.id !== user?.id);
+    }
+
+    return null;
+  }, [location.state?.otherUser, currentChat, user?.id]);
+
+  // Load chat details if not in store
+  const loadChatDetails = useCallback(async () => {
+    if (!chatId) return;
+
+    try {
+      const response = await chatService.getChatDetails(chatId);
+      addChat(response.chat);
+    } catch (error) {
+      console.error('Error loading chat details:', error);
+      // Don't show error toast as this is a background operation
+    }
+  }, [chatId, addChat]);
 
   const loadMessages = useCallback(async () => {
     if (!chatId) return;
@@ -57,6 +89,7 @@ const ChatPage = () => {
     if (!chatId) return;
 
     setActiveChat(chatId);
+    loadChatDetails();
     loadMessages();
     socket.joinChat(chatId);
 
@@ -76,7 +109,7 @@ const ChatPage = () => {
         isTypingRef.current = false;
       }
     };
-  }, [chatId, setActiveChat, loadMessages, socket]);
+  }, [chatId]);
 
   // Mark all unread messages as read when viewing chat
   const markMessagesAsRead = useCallback(() => {
@@ -216,9 +249,6 @@ const ChatPage = () => {
     setShowEmojiPicker(false);
   };
 
-  // Get other user info from location state
-  const otherUser = location.state?.otherUser;
-
   return (
     <div className="flex flex-col h-full">
       {/* Chat header */}
@@ -280,7 +310,7 @@ const ChatPage = () => {
                         {formatMessageTime(msg.createdAt)}
                       </p>
                       {isOwn && (
-                        <span className="text-xs">
+                        <span className="text-xs" title={`Status: ${msg.status || 'none'}`}>
                           {msg.status === 'sending' && <span className="text-blue-200 opacity-70">⏳</span>}
                           {msg.status === 'sent' && <span className="text-blue-200">✓</span>}
                           {msg.status === 'delivered' && <span className="text-blue-100">✓✓</span>}

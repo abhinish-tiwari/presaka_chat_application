@@ -133,6 +133,7 @@ export interface ChatState {
   setMessages: (chatId: string, messages: Message[]) => void;
   addMessage: (chatId: string, message: Message) => void;
   updateMessage: (chatId: string, tempId: string, message: Message) => void;
+  updateMessageStatus: (chatId: string, messageId: string, status: MessageStatus) => void;
   deleteMessage: (chatId: string, messageId: string) => void;
   setTyping: (chatId: string, userId: string, isTyping: boolean) => void;
   updateChatLastMessage: (chatId: string, message: Message) => void;

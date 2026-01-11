@@ -55,14 +55,14 @@ export const setupSocketIO = (io) => {
       // Get all online users from chats and send to newly connected user
       const onlineUserIds = new Set();
       for (const chat of chats) {
-        const chatMembers = chat.members || [];
-        for (const member of chatMembers) {
-          if (member.id !== socket.userId) {
-            const presence = await redis.get(`presence:${member.id}`);
+        const chatParticipants = chat.participants || [];
+        for (const participant of chatParticipants) {
+          if (participant.id !== socket.userId) {
+            const presence = await redis.get(`presence:${participant.id}`);
             if (presence) {
               const presenceData = JSON.parse(presence);
               if (presenceData.status === 'online') {
-                onlineUserIds.add(member.id);
+                onlineUserIds.add(participant.id);
               }
             }
           }
@@ -115,10 +115,10 @@ export const setupSocketIO = (io) => {
 
           // Create receipts for all chat members except sender
           const chat = await ChatModel.getChatWithMembers(chatId);
-          if (chat && chat.members) {
-            for (const member of chat.members) {
-              if (member.id !== socket.userId) {
-                await MessageModel.createReceipt(message.id, member.id);
+          if (chat && chat.participants) {
+            for (const participant of chat.participants) {
+              if (participant.id !== socket.userId) {
+                await MessageModel.createReceipt(message.id, participant.id);
               }
             }
           }
@@ -144,21 +144,27 @@ export const setupSocketIO = (io) => {
       // Handle message delivered
       socket.on('message:delivered', async ({ messageId, chatId }) => {
         try {
+          logger.info('Received message:delivered event', { messageId, chatId, userId: socket.userId });
+
           if (!messageId || !chatId) {
             logger.warn('Invalid message:delivered event', { messageId, chatId });
             return;
           }
 
           const result = await MessageModel.markDelivered(messageId, socket.userId);
+          logger.info('Mark delivered result:', { result, messageId, userId: socket.userId });
 
           // Only notify if update was successful
           if (result) {
+            logger.info('Emitting message:status (delivered)', { messageId, chatId });
             io.to(`chat:${chatId}`).emit('message:status', {
               messageId,
               chatId,
               status: 'delivered',
               timestamp: new Date().toISOString(),
             });
+          } else {
+            logger.warn('Mark delivered returned no result', { messageId, userId: socket.userId });
           }
         } catch (error) {
           logger.error('Error marking message delivered:', error.message);
@@ -169,21 +175,27 @@ export const setupSocketIO = (io) => {
       // Handle message read
       socket.on('message:read', async ({ messageId, chatId }) => {
         try {
+          logger.info('Received message:read event', { messageId, chatId, userId: socket.userId });
+
           if (!messageId || !chatId) {
             logger.warn('Invalid message:read event', { messageId, chatId });
             return;
           }
 
           const result = await MessageModel.markRead(messageId, socket.userId);
+          logger.info('Mark read result:', { result, messageId, userId: socket.userId });
 
           // Only notify if update was successful
           if (result) {
+            logger.info('Emitting message:status (read)', { messageId, chatId });
             io.to(`chat:${chatId}`).emit('message:status', {
               messageId,
               chatId,
               status: 'read',
               timestamp: new Date().toISOString(),
             });
+          } else {
+            logger.warn('Mark read returned no result', { messageId, userId: socket.userId });
           }
         } catch (error) {
           logger.error('Error marking message read:', error.message);

@@ -100,10 +100,12 @@ class SocketService {
   }
 
   markDelivered(messageId: string, chatId: string): void {
+    console.log('[SocketService] Emitting message:delivered', { messageId, chatId });
     this.emit('message:delivered', { messageId, chatId });
   }
 
   markRead(messageId: string, chatId: string): void {
+    console.log('[SocketService] Emitting message:read', { messageId, chatId });
     this.emit('message:read', { messageId, chatId });
   }
 
