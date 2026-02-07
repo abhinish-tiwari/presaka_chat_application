@@ -1,207 +1,182 @@
-import { create } from 'zustand';
-import { ChatState } from '@/types';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { Chat, Message, MessageStatus } from '@/types';
 
-export const useChatStore = create<ChatState>((set) => ({
+// Chat State Interface
+interface ChatState {
+  chats: Chat[];
+  activeChat: string | null;
+  messages: Record<string, Message[]>;
+  typingUsers: Record<string, string[]>;
+  onlineUsers: string[];
+}
+
+const initialState: ChatState = {
   chats: [],
   activeChat: null,
   messages: {},
   typingUsers: {},
+  onlineUsers: [],
+};
 
-  // Set chats
-  setChats: (chats) => set({
-    chats: chats.map(chat => ({
-      ...chat,
-      lastMessage: chat.lastMessage
-    }))
-  }),
+/**
+ * Utility to sync the last message of a chat and move it to the top of the list
+ */
+const syncChatList = (state: ChatState, chatId: string, updatedMessage?: Message) => {
+  const chatIndex = state.chats.findIndex((chat) => chat.id === chatId);
+  if (chatIndex < 0) return;
 
-  // Add or update chat
-  addChat: (chat) =>
-    set((state) => {
-      const existingIndex = state.chats.findIndex((c) => c.id === chat.id);
+  const chat = state.chats[chatIndex];
+  
+  // Update last message if provided, or find it from message history
+  if (updatedMessage) {
+    chat.lastMessage = updatedMessage;
+  } else {
+    const chatMessages = state.messages[chatId] || [];
+    chat.lastMessage = chatMessages.length > 0 ? chatMessages[chatMessages.length - 1] : undefined;
+  }
+
+  // Move chat to top if not already there
+  if (chatIndex !== 0) {
+    state.chats.splice(chatIndex, 1);
+    state.chats.unshift(chat);
+  }
+};
+
+/**
+ * Utility to find and update a specific message in state
+ */
+const findMessage = (state: ChatState, chatId: string, messageId: string) => {
+  const chatMessages = state.messages[chatId] || [];
+  const index = chatMessages.findIndex((m) => m.id === messageId || m.tempId === messageId);
+  return { chatMessages, index };
+};
+
+// Chat Slice
+const chatSlice = createSlice({
+  name: 'chat',
+  initialState,
+  reducers: {
+    setChats: (state, action: PayloadAction<Chat[]>) => {
+      state.chats = action.payload;
+    },
+    addChat: (state, action: PayloadAction<Chat>) => {
+      const existingIndex = state.chats.findIndex((c) => c.id === action.payload.id);
       if (existingIndex >= 0) {
-        const newChats = [...state.chats];
-        newChats[existingIndex] = chat;
-        return { chats: newChats };
-      }
-      return { chats: [chat, ...state.chats] };
-    }),
-
-  // Set active chat
-  setActiveChat: (chatId) => set({ activeChat: chatId }),
-
-  // Set messages for a chat
-  setMessages: (chatId, messages) =>
-    set((state) => ({
-      messages: {
-        ...state.messages,
-        [chatId]: messages,
-      },
-    })),
-
-  // Add message to chat
-  addMessage: (chatId, message) =>
-    set((state) => {
-      // Update messages
-      const updatedMessages = {
-        ...state.messages,
-        [chatId]: [...(state.messages[chatId] || []), message],
-      };
-
-      // Update the chat's lastMessage and move it to the top
-      const chatIndex = state.chats.findIndex((chat) => chat.id === chatId);
-      if (chatIndex >= 0) {
-        const updatedChat = { ...state.chats[chatIndex], lastMessage: message };
-        const updatedChats = [
-          updatedChat,
-          ...state.chats.slice(0, chatIndex),
-          ...state.chats.slice(chatIndex + 1),
-        ];
-
-        return {
-          messages: updatedMessages,
-          chats: updatedChats,
-        };
-      }
-
-      return {
-        messages: updatedMessages,
-        chats: state.chats,
-      };
-    }),
-
-  // Update message (for optimistic updates)
-  updateMessage: (chatId, tempId, message) =>
-    set((state) => {
-      const chatMessages = state.messages[chatId] || [];
-      const index = chatMessages.findIndex((m) => m.tempId === tempId || m.id === tempId);
-
-      if (index >= 0) {
-        const newMessages = [...chatMessages];
-        newMessages[index] = { ...newMessages[index], ...message };
-
-        // If this is the last message, update the chat's lastMessage
-        const isLastMessage = index === chatMessages.length - 1;
-        const updatedChats = isLastMessage
-          ? state.chats.map((chat) =>
-              chat.id === chatId
-                ? { ...chat, lastMessage: newMessages[index] }
-                : chat
-            )
-          : state.chats;
-
-        return {
-          messages: {
-            ...state.messages,
-            [chatId]: newMessages,
-          },
-          chats: updatedChats,
-        };
-      }
-      return state;
-    }),
-
-  // Update message status by message ID
-  updateMessageStatus: (chatId, messageId, status) =>
-    set((state) => {
-      const chatMessages = state.messages[chatId] || [];
-      const index = chatMessages.findIndex((m) => m.id === messageId);
-
-      console.log('[ChatStore] updateMessageStatus called:', { chatId, messageId, status, foundIndex: index, totalMessages: chatMessages.length });
-
-      if (index >= 0) {
-        const newMessages = [...chatMessages];
-        const oldStatus = newMessages[index].status;
-        newMessages[index] = { ...newMessages[index], status };
-
-        console.log('[ChatStore] Message status updated:', { messageId, oldStatus, newStatus: status });
-
-        // If this is the last message, update the chat's lastMessage
-        const isLastMessage = index === chatMessages.length - 1;
-        const updatedChats = isLastMessage
-          ? state.chats.map((chat) =>
-              chat.id === chatId
-                ? { ...chat, lastMessage: newMessages[index] }
-                : chat
-            )
-          : state.chats;
-
-        return {
-          messages: {
-            ...state.messages,
-            [chatId]: newMessages,
-          },
-          chats: updatedChats,
-        };
+        state.chats[existingIndex] = action.payload;
       } else {
-        console.warn('[ChatStore] Message not found for status update:', { chatId, messageId, availableIds: chatMessages.map(m => m.id) });
+        state.chats.unshift(action.payload);
       }
-      return state;
-    }),
+    },
+    setActiveChat: (state, action: PayloadAction<string | null>) => {
+      state.activeChat = action.payload;
+    },
+    setMessages: (state, action: PayloadAction<{ chatId: string; messages: Message[] }>) => {
+      state.messages[action.payload.chatId] = action.payload.messages;
+    },
+    addMessage: (state, action: PayloadAction<{ chatId: string; message: Message }>) => {
+      const { chatId, message } = action.payload;
+      if (!state.messages[chatId]) {
+        state.messages[chatId] = [];
+      }
+      state.messages[chatId].push(message);
+      syncChatList(state, chatId, message);
+    },
+    updateMessage: (state, action: PayloadAction<{ chatId: string; tempId: string; message: Partial<Message> }>) => {
+      const { chatId, tempId, message } = action.payload;
+      const { chatMessages, index } = findMessage(state, chatId, tempId);
 
-  // Delete message
-  deleteMessage: (chatId, messageId) =>
-    set((state) => {
-      const chatMessages = state.messages[chatId] || [];
-      const newMessages = chatMessages.filter((msg) => msg.id !== messageId);
+      if (index >= 0) {
+        chatMessages[index] = { ...chatMessages[index], ...message };
+        
+        // Sync last message if this was the last one
+        if (index === chatMessages.length - 1) {
+          syncChatList(state, chatId, chatMessages[index]);
+        }
+      }
+    },
+    updateMessageStatus: (state, action: PayloadAction<{ chatId: string; messageId: string; status: MessageStatus }>) => {
+      const { chatId, messageId, status } = action.payload;
+      const { chatMessages, index } = findMessage(state, chatId, messageId);
 
-      // Update the chat's lastMessage to the new last message
-      const lastMessage = newMessages.length > 0 ? newMessages[newMessages.length - 1] : undefined;
-      const updatedChats = state.chats.map((chat) =>
-        chat.id === chatId
-          ? { ...chat, lastMessage }
-          : chat
-      );
-
-      return {
-        messages: {
-          ...state.messages,
-          [chatId]: newMessages,
-        },
-        chats: updatedChats,
-      };
-    }),
-
-  // Set typing users for a chat
-  setTyping: (chatId, userId, isTyping) =>
-    set((state) => {
+      if (index >= 0) {
+        chatMessages[index].status = status;
+        if (index === chatMessages.length - 1) {
+          syncChatList(state, chatId, chatMessages[index]);
+        }
+      }
+    },
+    deleteMessage: (state, action: PayloadAction<{ chatId: string; messageId: string }>) => {
+      const { chatId, messageId } = action.payload;
+      if (!state.messages[chatId]) return;
+      
+      state.messages[chatId] = state.messages[chatId].filter((msg) => msg.id !== messageId);
+      syncChatList(state, chatId);
+    },
+    setTyping: (state, action: PayloadAction<{ chatId: string; userId: string; isTyping: boolean }>) => {
+      const { chatId, userId, isTyping } = action.payload;
       const currentTyping = state.typingUsers[chatId] || [];
-      const newTyping = isTyping
-        ? [...currentTyping.filter(id => id !== userId), userId]
-        : currentTyping.filter(id => id !== userId);
 
-      return {
-        typingUsers: {
-          ...state.typingUsers,
-          [chatId]: newTyping,
-        },
-      };
-    }),
+      if (isTyping) {
+        state.typingUsers[chatId] = [...currentTyping.filter(id => id !== userId), userId];
+      } else {
+        state.typingUsers[chatId] = currentTyping.filter(id => id !== userId);
+      }
+    },
+    updateChatLastMessage: (state, action: PayloadAction<{ chatId: string; message: Message }>) => {
+      syncChatList(state, action.payload.chatId, action.payload.message);
+    },
+    incrementUnreadCount: (state, action: PayloadAction<string>) => {
+      const chat = state.chats.find(c => c.id === action.payload);
+      if (chat) chat.unreadCount += 1;
+    },
+    resetUnreadCount: (state, action: PayloadAction<string>) => {
+      const chat = state.chats.find(c => c.id === action.payload);
+      if (chat) chat.unreadCount = 0;
+    },
+    addReaction: (state, action: PayloadAction<{ chatId: string; messageId: string; emoji: string; userId: string }>) => {
+      const { chatId, messageId, emoji, userId } = action.payload;
+      const { chatMessages, index } = findMessage(state, chatId, messageId);
+      
+      if (index >= 0) {
+        const msg = chatMessages[index];
+        if (!msg.reactions) msg.reactions = [];
+        // Unique reaction per user+emoji
+        msg.reactions = msg.reactions.filter(r => r.userId !== userId || r.emoji !== emoji);
+        msg.reactions.push({ emoji, userId });
+      }
+    },
+    removeReaction: (state, action: PayloadAction<{ chatId: string; messageId: string; emoji: string; userId: string }>) => {
+      const { chatId, messageId, emoji, userId } = action.payload;
+      const { chatMessages, index } = findMessage(state, chatId, messageId);
+      
+      if (index >= 0 && chatMessages[index].reactions) {
+        chatMessages[index].reactions = chatMessages[index].reactions!.filter(
+          (r) => !(r.emoji === emoji && r.userId === userId)
+        );
+      }
+    },
+    setOnlineUsers: (state, action: PayloadAction<string[]>) => {
+      state.onlineUsers = action.payload;
+    },
+  },
+});
 
-  // Update chat's last message
-  updateChatLastMessage: (chatId, message) =>
-    set((state) => ({
-      chats: state.chats.map((chat) =>
-        chat.id === chatId ? { ...chat, lastMessage: message } : chat
-      ),
-    })),
+export const {
+  setChats,
+  addChat,
+  setActiveChat,
+  setMessages,
+  addMessage,
+  updateMessage,
+  updateMessageStatus,
+  deleteMessage,
+  setTyping,
+  updateChatLastMessage,
+  incrementUnreadCount,
+  resetUnreadCount,
+  addReaction,
+  removeReaction,
+  setOnlineUsers,
+} = chatSlice.actions;
 
-  // Increment unread count
-  incrementUnreadCount: (chatId) =>
-    set((state) => ({
-      chats: state.chats.map((chat) =>
-        chat.id === chatId
-          ? { ...chat, unreadCount: chat.unreadCount + 1 }
-          : chat
-      ),
-    })),
-
-  // Reset unread count
-  resetUnreadCount: (chatId) =>
-    set((state) => ({
-      chats: state.chats.map((chat) =>
-        chat.id === chatId ? { ...chat, unreadCount: 0 } : chat
-      ),
-    })),
-}));
-
+export default chatSlice.reducer;

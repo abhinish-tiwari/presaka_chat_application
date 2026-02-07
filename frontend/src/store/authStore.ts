@@ -1,45 +1,61 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { AuthState } from '@/types';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { persistReducer } from 'redux-persist';
+import storage from 'redux-persist/lib/storage';
+import { User, UpdateUserData } from '@/types';
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      user: null,
-      accessToken: null,
-      isAuthenticated: false,
+// Auth State Interface
+interface AuthState {
+  user: User | null;
+  accessToken: string | null;
+  isAuthenticated: boolean;
+}
 
-      setUser: (user) => set({ user, isAuthenticated: true }),
+const initialState: AuthState = {
+  user: null,
+  accessToken: null,
+  isAuthenticated: false,
+};
 
-      setAccessToken: (token) => set({ accessToken: token }),
+// Auth Slice
+const authSlice = createSlice({
+  name: 'auth',
+  initialState,
+  reducers: {
+    setUser: (state, action: PayloadAction<User>) => {
+      state.user = action.payload;
+      state.isAuthenticated = true;
+    },
+    setAccessToken: (state, action: PayloadAction<string>) => {
+      state.accessToken = action.payload;
+    },
+    setAuth: (state, action: PayloadAction<{ user: User; accessToken: string }>) => {
+      state.user = action.payload.user;
+      state.accessToken = action.payload.accessToken;
+      state.isAuthenticated = true;
+    },
+    logout: (state) => {
+      state.user = null;
+      state.accessToken = null;
+      state.isAuthenticated = false;
+    },
+    updateUser: (state, action: PayloadAction<UpdateUserData>) => {
+      if (state.user) {
+        state.user = { ...state.user, ...action.payload };
+      }
+    },
+  },
+});
 
-      setAuth: (user, accessToken) =>
-        set({
-          user,
-          accessToken,
-          isAuthenticated: true,
-        }),
+// Export actions
+export const { setUser, setAccessToken, setAuth, logout, updateUser } = authSlice.actions;
 
-      logout: () =>
-        set({
-          user: null,
-          accessToken: null,
-          isAuthenticated: false,
-        }),
+// Persist config
+const persistConfig = {
+  key: 'auth',
+  storage,
+  whitelist: ['user', 'accessToken', 'isAuthenticated'],
+};
 
-      updateUser: (userData) =>
-        set((state) => ({
-          user: state.user ? { ...state.user, ...userData } : null,
-        })),
-    }),
-    {
-      name: 'auth-storage',
-      partialize: (state) => ({
-        user: state.user,
-        accessToken: state.accessToken,
-        isAuthenticated: state.isAuthenticated,
-      }),
-    }
-  )
-);
+// Export persisted reducer
+export default persistReducer(persistConfig, authSlice.reducer);
 

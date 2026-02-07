@@ -50,6 +50,17 @@ export interface Message {
   updatedAt: Date | string;
   tempId?: string;
   readBy?: string[];
+  replyTo?: {
+    id: string;
+    content: string;
+    senderId: string;
+    senderName: string;
+  };
+  reactions?: {
+    emoji: string;
+    userId: string;
+  }[];
+  isEdited?: boolean;
 }
 
 export interface SendMessageData {

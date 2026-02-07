@@ -95,8 +95,8 @@ class SocketService {
   }
 
   // Message events
-  sendMessage(chatId: string, content: string, type: string = 'text', tempId?: string): void {
-    this.emit('message:send', { chatId, content, type, tempId });
+  sendMessage(chatId: string, content: string, type: string = 'text', tempId?: string, replyToId?: string): void {
+    this.emit('message:send', { chatId, content, type, tempId, replyToId });
   }
 
   markDelivered(messageId: string, chatId: string): void {
@@ -109,8 +109,20 @@ class SocketService {
     this.emit('message:read', { messageId, chatId });
   }
 
+  addReaction(messageId: string, chatId: string, emoji: string): void {
+    this.emit('message:reaction:add', { messageId, chatId, emoji });
+  }
+
+  removeReaction(messageId: string, chatId: string, emoji: string): void {
+    this.emit('message:reaction:remove', { messageId, chatId, emoji });
+  }
+
   deleteMessage(messageId: string, chatId: string): void {
     this.emit('message:delete', { messageId, chatId });
+  }
+
+  editMessage(messageId: string, chatId: string, content: string): void {
+    this.emit('message:edit', { messageId, chatId, content });
   }
 
   // Typing events

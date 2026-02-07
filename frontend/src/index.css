@@ -5,32 +5,137 @@
 @layer base {
   body {
     @apply bg-gray-50 text-gray-900 antialiased;
+    @apply dark:bg-gray-900 dark:text-gray-100;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
-  html, body, #root {
+  html,
+  body,
+  #root {
     @apply h-full;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100 dark:bg-gray-800;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400 dark:bg-gray-500;
   }
 }
 
 @layer components {
+  /* Legacy button styles for backward compatibility */
   .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply dark:focus:ring-offset-gray-900;
   }
 
   .btn-primary {
-    @apply bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500;
+    @apply bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 active:bg-blue-800;
+    @apply dark:bg-blue-500 dark:hover:bg-blue-600 dark:active:bg-blue-700;
   }
 
   .btn-secondary {
-    @apply bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500;
+    @apply bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500 active:bg-gray-400;
+    @apply dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600 dark:active:bg-gray-500;
   }
 
+  .btn-ghost {
+    @apply bg-transparent text-gray-700 hover:bg-gray-100 focus:ring-gray-500 active:bg-gray-200;
+    @apply dark:text-gray-300 dark:hover:bg-gray-800 dark:active:bg-gray-700;
+  }
+
+  /* Legacy input styles for backward compatibility */
   .input {
-    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+    @apply w-full px-4 py-2.5 text-gray-900 bg-white border border-gray-300 rounded-lg transition-colors duration-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed;
+    @apply dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600 dark:placeholder:text-gray-500 dark:focus:ring-blue-400 dark:disabled:bg-gray-900 dark:disabled:text-gray-600;
   }
 
+  /* Legacy card styles for backward compatibility */
   .card {
-    @apply bg-white rounded-lg shadow-sm border border-gray-200;
+    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-4;
+    @apply dark:bg-gray-800 dark:border-gray-700;
+  }
+
+  /* Toast custom styles */
+  .toast-custom {
+    @apply animate-in slide-in-from-top-5 duration-300;
+  }
+}
+
+@layer utilities {
+  /* Animation utilities */
+  .animate-in {
+    animation-duration: 150ms;
+    animation-fill-mode: both;
+  }
+
+  .slide-in-from-top-5 {
+    animation-name: slideInFromTop;
+  }
+
+  @keyframes slideInFromTop {
+    from {
+      transform: translateY(-20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  /* Shimmer effect for buttons/loading states */
+  .shimmer {
+    @apply relative overflow-hidden;
+  }
+  .shimmer::after {
+    @apply absolute inset-0;
+    content: '';
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent
+    );
+    transform: translateX(-100%);
+    animation: shimmer-base 2s infinite;
+  }
+
+  @keyframes shimmer-base {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  /* Improved glass effect */
+  .glass-premium {
+    @apply backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 border border-white/20 dark:border-gray-800/40 shadow-xl;
+  }
+
+  /* Glow effects */
+  .glow-blue {
+    @apply shadow-[0_0_15px_rgba(59,130,246,0.3)];
+  }
+  
+  .glow-blue-hover:hover {
+    @apply shadow-[0_0_20px_rgba(59,130,246,0.5)];
   }
 }
 
@@ -67,3 +172,36 @@
   animation: messageHighlight 2s ease-in-out;
 }
 
+/* Skeleton shimmer wave animation */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.skeleton-wave {
+  background: linear-gradient(
+    90deg,
+    rgba(229, 231, 235, 0) 0%,
+    rgba(229, 231, 235, 0.2) 20%,
+    rgba(229, 231, 235, 0.5) 60%,
+    rgba(229, 231, 235, 0)
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}
+
+.dark .skeleton-wave {
+  background: linear-gradient(
+    90deg,
+    rgba(55, 65, 81, 0) 0%,
+    rgba(55, 65, 81, 0.2) 20%,
+    rgba(55, 65, 81, 0.5) 60%,
+    rgba(55, 65, 81, 0)
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}

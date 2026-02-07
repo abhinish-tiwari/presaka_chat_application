@@ -1,29 +1,56 @@
-import { create } from 'zustand';
-import { UIState } from '@/types';
+import { createSlice } from '@reduxjs/toolkit';
 
-interface ExtendedUIState extends UIState {
+// UI State Interface
+interface UIState {
+  isSidebarOpen: boolean;
   isProfileModalOpen: boolean;
   isNewChatModalOpen: boolean;
-  openProfileModal: () => void;
-  closeProfileModal: () => void;
-  openNewChatModal: () => void;
-  closeNewChatModal: () => void;
+  theme: 'light' | 'dark';
 }
 
-export const useUIStore = create<ExtendedUIState>((set) => ({
+const initialState: UIState = {
   isSidebarOpen: true,
   isProfileModalOpen: false,
   isNewChatModalOpen: false,
   theme: 'light',
+};
 
-  toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
-  
-  openProfileModal: () => set({ isProfileModalOpen: true }),
-  closeProfileModal: () => set({ isProfileModalOpen: false }),
-  
-  openNewChatModal: () => set({ isNewChatModalOpen: true }),
-  closeNewChatModal: () => set({ isNewChatModalOpen: false }),
-  
-  setTheme: (theme) => set({ theme }),
-}));
+// UI Slice
+const uiSlice = createSlice({
+  name: 'ui',
+  initialState,
+  reducers: {
+    toggleSidebar: (state) => {
+      state.isSidebarOpen = !state.isSidebarOpen;
+    },
+    openProfileModal: (state) => {
+      state.isProfileModalOpen = true;
+    },
+    closeProfileModal: (state) => {
+      state.isProfileModalOpen = false;
+    },
+    openNewChatModal: (state) => {
+      state.isNewChatModalOpen = true;
+    },
+    closeNewChatModal: (state) => {
+      state.isNewChatModalOpen = false;
+    },
+    setTheme: (state, action) => {
+      state.theme = action.payload;
+    },
+  },
+});
+
+// Export actions
+export const {
+  toggleSidebar,
+  openProfileModal,
+  closeProfileModal,
+  openNewChatModal,
+  closeNewChatModal,
+  setTheme,
+} = uiSlice.actions;
+
+// Export reducer
+export default uiSlice.reducer;
 

@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosError } from 'axios';
-import { useAuthStore } from '@store/authStore';
+import { store } from '@store/index';
+import { setAccessToken, logout } from '@store/authStore';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
@@ -28,7 +29,7 @@ const api: AxiosInstance = axios.create({
 // Request interceptor - Add auth token and proactively refresh if needed
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    const token = useAuthStore.getState().accessToken;
+    const token = store.getState().auth.accessToken;
 
     // Check if token is about to expire and refresh it proactively
     if (token && isTokenExpired(token) && !config.url?.includes('/auth/refresh')) {
@@ -39,7 +40,7 @@ api.interceptors.request.use(
           { withCredentials: true }
         );
         const { accessToken } = response.data.tokens;
-        useAuthStore.getState().setAccessToken(accessToken);
+        store.dispatch(setAccessToken(accessToken));
 
         if (config.headers) {
           config.headers.Authorization = `Bearer ${accessToken}`;
@@ -114,7 +115,7 @@ api.interceptors.response.use(
         );
 
         const { accessToken } = response.data.tokens;
-        useAuthStore.getState().setAccessToken(accessToken);
+        store.dispatch(setAccessToken(accessToken));
 
         // Process queued requests
         processQueue(null, accessToken);
@@ -127,7 +128,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         // Refresh failed, logout user
         processQueue(refreshError as Error, null);
-        useAuthStore.getState().logout();
+        store.dispatch(logout());
 
         // Only redirect if not already on login page
         if (window.location.pathname !== '/login') {

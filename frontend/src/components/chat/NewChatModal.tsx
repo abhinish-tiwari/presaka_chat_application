@@ -3,6 +3,7 @@ import { userService } from '@services/userService';
 import { chatService } from '@services/chatService';
 import toast from 'react-hot-toast';
 import { Chat, User } from '@/types';
+import { Modal, Input, Avatar, Spinner, UserSearchListSkeleton } from '@components/ui';
 
 interface NewChatModalProps {
   isOpen: boolean;
@@ -37,6 +38,8 @@ const NewChatModal = ({ isOpen, onClose, onChatCreated }: NewChatModalProps) => 
   };
 
   const handleCreateChat = async (userId: string) => {
+    if (creating) return;
+    
     setCreating(true);
     try {
       const response = await chatService.createPrivateChat(userId);
@@ -53,82 +56,77 @@ const NewChatModal = ({ isOpen, onClose, onChatCreated }: NewChatModalProps) => 
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">New Chat</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="New Chat"
+      size="md"
+    >
+      <div className="space-y-4">
         {/* Search Input */}
-        <div className="p-4">
-          <input
-            type="text"
-            placeholder="Search by phone number or name..."
-            value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            autoFocus
-          />
-        </div>
+        <Input
+          type="text"
+          placeholder="Search by phone number or name..."
+          value={searchQuery}
+          onChange={(e) => handleSearch(e.target.value)}
+          fullWidth
+          autoFocus
+          leftIcon={
+            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          }
+        />
 
         {/* Search Results */}
-        <div className="max-h-96 overflow-y-auto">
+        <div className="max-h-96 overflow-y-auto -mx-6">
           {loading ? (
-            <div className="p-8 text-center text-gray-500">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-              <p className="mt-2">Searching...</p>
+            <div className="px-6">
+              <UserSearchListSkeleton count={4} />
             </div>
           ) : searchResults.length > 0 ? (
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y divide-gray-100 dark:divide-gray-700">
               {searchResults.map((user) => (
                 <div
                   key={user.id}
-                  className="p-4 hover:bg-gray-50 cursor-pointer flex items-center justify-between"
+                  className="px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer flex items-center justify-between transition-colors duration-200"
                   onClick={() => handleCreateChat(user.id)}
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
-                      <span className="text-sm font-semibold text-gray-600">
-                        {user.name?.[0] || user.phone?.[0] || '?'}
-                      </span>
-                    </div>
+                    <Avatar
+                      alt={user.name || 'User'}
+                      fallback={user.name?.[0] || user.phone?.[0] || '?'}
+                      size="md"
+                    />
                     <div>
-                      <p className="font-medium text-gray-900">{user.name || 'Unknown'}</p>
-                      <p className="text-sm text-gray-500">{user.phone}</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">
+                        {user.name || 'Unknown'}
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {user.phone}
+                      </p>
                     </div>
                   </div>
                   {creating && (
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                    <Spinner size="sm" variant="primary" />
                   )}
                 </div>
               ))}
             </div>
           ) : searchQuery.length >= 3 ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className="p-8 text-center text-gray-500 dark:text-gray-400">
               <p>No users found</p>
             </div>
           ) : (
-            <div className="p-8 text-center text-gray-500">
-              <p>Type at least 3 characters to search</p>
+            <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+              <p className="text-sm">Type at least 3 characters to search</p>
             </div>
           )}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 
 export default NewChatModal;
-

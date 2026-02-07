@@ -11,17 +11,20 @@
     "lint:fix": "eslint . --ext js,jsx,ts,tsx --fix"
   },
   "dependencies": {
+    "@reduxjs/toolkit": "^2.11.2",
     "axios": "^1.6.5",
     "clsx": "^2.1.0",
     "date-fns": "^3.0.6",
+    "framer-motion": "^12.25.0",
     "prop-types": "^15.8.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.4.1",
+    "react-redux": "^9.2.0",
     "react-router-dom": "^6.21.1",
+    "redux-persist": "^6.0.0",
     "socket.io-client": "^4.6.1",
-    "uuid": "^13.0.0",
-    "zustand": "^4.4.7"
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@types/node": "^25.0.5",
