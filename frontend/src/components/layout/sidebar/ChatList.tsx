@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { ChatListSkeleton } from '@components/ui';
 import { Chat, User } from '@/types';
 import ChatItem from './ChatItem';
