@@ -1,26 +1,22 @@
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { useParams, useLocation, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { useAppDispatch, useAppSelector } from "@store/hooks";
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import { useAppDispatch, useAppSelector } from '@store/hooks';
 import {
   setMessages,
   addMessage,
+  removeChat,
   resetUnreadCount,
   setActiveChat,
-} from "@store/chatStore";
-import { chatService } from "@services/chatService";
-import { useSocket } from "@/contexts/SocketContext";
-import { formatMessageTime, formatLastSeen } from "@utils/formatters";
-import toast from "react-hot-toast";
-import { v4 as uuidv4 } from "uuid";
-import MessageActions from "@/components/MessageActions";
-import EmojiPicker from "@/components/EmojiPicker";
-import ChatHeader from './components/ChatHeader';
+} from '@store/chatStore';
+import { chatService } from '@services/chatService';
+import { useSocket } from '@/contexts/SocketContext';
+import toast from 'react-hot-toast';
+import { v4 as uuidv4 } from 'uuid';
+import ChatHeader, { type ConversationAction } from './components/ChatHeader';
 import MessageList from './components/MessageList';
 import MessageComposer from './components/MessageComposer';
-import { Message } from "@/types";
-import { PageTransition } from "@components/PageTransition";
-import { MessageListSkeleton, Avatar, Button, Input, Badge } from "@components/ui";
+import { Message } from '@/types';
+import { PageTransition } from '@components/PageTransition';
 
 const ChatPage = () => {
   const { chatId } = useParams<{ chatId: string }>();
@@ -197,6 +193,88 @@ const ChatPage = () => {
     }, 3000);
   };
 
+  const handleConversationAction = async (action: ConversationAction) => {
+    if (!chatId) return;
+
+    const getApiErrorMessage = (error: unknown, fallback: string) => {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'response' in error &&
+        typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === 'string'
+      ) {
+        return (error as { response?: { data?: { message?: string } } }).response!.data!.message!;
+      }
+      return fallback;
+    };
+
+    switch (action) {
+      case 'copy-phone':
+        if (!otherUser?.phone) {
+          toast.error('Phone number not available');
+          return;
+        }
+
+        try {
+          await navigator.clipboard.writeText(otherUser.phone);
+          toast.success('Phone number copied');
+        } catch {
+          toast.error('Could not copy number');
+        }
+        return;
+
+      case 'clear-chat': {
+        const shouldClear = window.confirm('Clear all messages in this conversation from your current view?');
+        if (!shouldClear) return;
+
+        try {
+          const response = await chatService.clearChat(chatId);
+          dispatch(setMessages({ chatId, messages: [] }));
+          setReplyingTo(null);
+          setEditingMessage(null);
+          setMessage('');
+          toast.success(response.message || 'Conversation cleared');
+        } catch (error) {
+          toast.error(getApiErrorMessage(error, 'Failed to clear conversation'));
+        }
+        return;
+      }
+
+      case 'block-user': {
+        const shouldBlock = window.confirm('Block this user and remove this conversation from your list?');
+        if (!shouldBlock) return;
+
+        try {
+          const response = await chatService.blockChatUser(chatId);
+          dispatch(removeChat(chatId));
+          toast.success(response.message || 'User blocked');
+          navigate('/');
+        } catch (error) {
+          toast.error(getApiErrorMessage(error, 'Failed to block user'));
+        }
+        return;
+      }
+
+      case 'delete-chat': {
+        const shouldDelete = window.confirm('Delete this conversation for your account?');
+        if (!shouldDelete) return;
+
+        try {
+          const response = await chatService.deleteChat(chatId);
+          dispatch(removeChat(chatId));
+          toast.success(response.message || 'Conversation deleted');
+          navigate('/');
+        } catch (error) {
+          toast.error(getApiErrorMessage(error, 'Failed to delete conversation'));
+        }
+        return;
+      }
+
+      default:
+        return;
+    }
+  };
+
   return (
     <PageTransition>
       <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-300">
@@ -206,6 +284,7 @@ const ChatPage = () => {
           isOtherUserOnline={isOtherUserOnline}
           isTyping={isTyping}
           onBack={() => navigate('/')}
+          onConversationAction={handleConversationAction}
         />
 
         {/* Message Area - Using the legacy beige background for familiarity in light mode */}

@@ -39,6 +39,25 @@ CREATE TABLE IF NOT EXISTS chat_members (
     UNIQUE(chat_id, user_id)
 );
 
+-- Per-user chat clear state
+CREATE TABLE IF NOT EXISTS chat_clears (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    chat_id UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    cleared_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(chat_id, user_id)
+);
+
+-- User block relationships
+CREATE TABLE IF NOT EXISTS user_blocks (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    blocker_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    blocked_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CHECK (blocker_id <> blocked_id),
+    UNIQUE(blocker_id, blocked_id)
+);
+
 -- Messages table
 CREATE TABLE IF NOT EXISTS messages (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -72,6 +91,9 @@ CREATE INDEX IF NOT EXISTS idx_chats_created_at ON chats(created_at);
 CREATE INDEX IF NOT EXISTS idx_chat_members_chat_id ON chat_members(chat_id);
 CREATE INDEX IF NOT EXISTS idx_chat_members_user_id ON chat_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_chat_members_left_at ON chat_members(left_at);
+CREATE INDEX IF NOT EXISTS idx_chat_clears_chat_user ON chat_clears(chat_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_user_blocks_blocker ON user_blocks(blocker_id);
+CREATE INDEX IF NOT EXISTS idx_user_blocks_blocked ON user_blocks(blocked_id);
 
 CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);
 CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
@@ -98,4 +120,3 @@ CREATE TRIGGER update_chats_updated_at BEFORE UPDATE ON chats
 
 CREATE TRIGGER update_messages_updated_at BEFORE UPDATE ON messages
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-

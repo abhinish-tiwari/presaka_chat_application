@@ -1,5 +1,11 @@
 import { query } from '../config/database.js';
 
+const isMissingRelationError = (error, tableName) => (
+	error?.code === '42P01'
+	&& typeof error?.message === 'string'
+	&& error.message.includes(tableName)
+);
+
 export const MessageModel = {
 	/**
 	 * Create new message
@@ -60,55 +66,116 @@ export const MessageModel = {
 	/**
 	 * Get messages for a specific chat with pagination
 	 */
-	async getChatMessages(chatId, limit = 50, before = null) {
-		let queryText = `
-			SELECT
-				m.*,
-				json_build_object(
-					'id', u.id,
-					'name', u.name,
-					'phone', u.phone,
-					'avatarUrl', u.avatar_url
-				) as sender,
-				(SELECT json_build_object(
-					'id', rm.id,
-					'content', rm.content,
-					'senderId', rm.sender_id,
-					'senderName', ru.name
-				)
-				FROM messages rm
-				INNER JOIN users ru ON rm.sender_id = ru.id
-				WHERE rm.id = m.reply_to_message_id
-				) as reply_to,
-				(SELECT COALESCE(json_agg(json_build_object('emoji', emoji, 'userId', user_id)), '[]'::json)
-				 FROM message_reactions
-				 WHERE message_id = m.id
-				) as reactions,
-				CASE
-					WHEN COUNT(mr.id) = 0 THEN 'sent'
-					WHEN COUNT(mr.id) FILTER (WHERE mr.read_at IS NOT NULL) > 0 THEN 'read'
-					WHEN COUNT(mr.id) FILTER (WHERE mr.delivered_at IS NOT NULL) > 0 THEN 'delivered'
-					ELSE 'sent'
-				END as status
-			FROM messages m
-			INNER JOIN users u ON m.sender_id = u.id
-			LEFT JOIN message_receipts mr ON m.id = mr.message_id
-			WHERE m.chat_id = $1 AND m.deleted_at IS NULL
-		`;
+	async getChatMessages(chatId, userId, limit = 50, before = null) {
+		try {
+			let queryText = `
+				SELECT
+					m.*,
+					json_build_object(
+						'id', u.id,
+						'name', u.name,
+						'phone', u.phone,
+						'avatarUrl', u.avatar_url
+					) as sender,
+					(SELECT json_build_object(
+						'id', rm.id,
+						'content', rm.content,
+						'senderId', rm.sender_id,
+						'senderName', ru.name
+					)
+					FROM messages rm
+					INNER JOIN users ru ON rm.sender_id = ru.id
+					WHERE rm.id = m.reply_to_message_id
+					) as reply_to,
+					(SELECT COALESCE(json_agg(json_build_object('emoji', emoji, 'userId', user_id)), '[]'::json)
+					 FROM message_reactions
+					 WHERE message_id = m.id
+					) as reactions,
+					CASE
+						WHEN COUNT(mr.id) = 0 THEN 'sent'
+						WHEN COUNT(mr.id) FILTER (WHERE mr.read_at IS NOT NULL) > 0 THEN 'read'
+						WHEN COUNT(mr.id) FILTER (WHERE mr.delivered_at IS NOT NULL) > 0 THEN 'delivered'
+						ELSE 'sent'
+					END as status
+				FROM messages m
+				INNER JOIN users u ON m.sender_id = u.id
+				LEFT JOIN message_receipts mr ON m.id = mr.message_id
+				WHERE m.chat_id = $1
+				  AND m.deleted_at IS NULL
+				  AND m.created_at > COALESCE((
+					SELECT cc.cleared_at
+					FROM chat_clears cc
+					WHERE cc.chat_id = $1 AND cc.user_id = $2
+				  ), TO_TIMESTAMP(0))
+			`;
 
-		const params = [chatId];
+			const params = [chatId, userId];
 
-		if (before) {
-			queryText += ` AND m.created_at < (SELECT created_at FROM messages WHERE id = $2)`;
-			params.push(before);
+			if (before) {
+				queryText += ` AND m.created_at < (SELECT created_at FROM messages WHERE id = $3)`;
+				params.push(before);
+			}
+
+			queryText += ` GROUP BY m.id, u.id, u.name, u.phone, u.avatar_url`;
+			queryText += ` ORDER BY m.created_at DESC LIMIT $${params.length + 1}`;
+			params.push(limit);
+
+			const result = await query(queryText, params);
+			return result.rows.reverse();
+		} catch (error) {
+			if (!isMissingRelationError(error, 'chat_clears')) {
+				throw error;
+			}
+
+			let legacyQueryText = `
+				SELECT
+					m.*,
+					json_build_object(
+						'id', u.id,
+						'name', u.name,
+						'phone', u.phone,
+						'avatarUrl', u.avatar_url
+					) as sender,
+					(SELECT json_build_object(
+						'id', rm.id,
+						'content', rm.content,
+						'senderId', rm.sender_id,
+						'senderName', ru.name
+					)
+					FROM messages rm
+					INNER JOIN users ru ON rm.sender_id = ru.id
+					WHERE rm.id = m.reply_to_message_id
+					) as reply_to,
+					(SELECT COALESCE(json_agg(json_build_object('emoji', emoji, 'userId', user_id)), '[]'::json)
+					 FROM message_reactions
+					 WHERE message_id = m.id
+					) as reactions,
+					CASE
+						WHEN COUNT(mr.id) = 0 THEN 'sent'
+						WHEN COUNT(mr.id) FILTER (WHERE mr.read_at IS NOT NULL) > 0 THEN 'read'
+						WHEN COUNT(mr.id) FILTER (WHERE mr.delivered_at IS NOT NULL) > 0 THEN 'delivered'
+						ELSE 'sent'
+					END as status
+				FROM messages m
+				INNER JOIN users u ON m.sender_id = u.id
+				LEFT JOIN message_receipts mr ON m.id = mr.message_id
+				WHERE m.chat_id = $1 AND m.deleted_at IS NULL
+			`;
+
+			const legacyParams = [chatId];
+
+			if (before) {
+				legacyQueryText += ` AND m.created_at < (SELECT created_at FROM messages WHERE id = $2)`;
+				legacyParams.push(before);
+			}
+
+			legacyQueryText += ` GROUP BY m.id, u.id, u.name, u.phone, u.avatar_url`;
+			legacyQueryText += ` ORDER BY m.created_at DESC LIMIT $${legacyParams.length + 1}`;
+			legacyParams.push(limit);
+
+			const legacyResult = await query(legacyQueryText, legacyParams);
+			return legacyResult.rows.reverse();
 		}
-
-		queryText += ` GROUP BY m.id, u.id, u.name, u.phone, u.avatar_url`;
-		queryText += ` ORDER BY m.created_at DESC LIMIT $${params.length + 1}`;
-		params.push(limit);
-
-		const result = await query(queryText, params);
-		return result.rows.reverse();
 	},
 
 	/**

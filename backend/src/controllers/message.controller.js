@@ -17,6 +17,7 @@ export const MessageController = {
 
       const messages = await MessageModel.getChatMessages(
         chatId,
+        req.user.id,
         parseInt(limit),
         before
       );
@@ -43,7 +44,7 @@ export const MessageController = {
       }
 
       // Only sender can delete their own message
-      if (message.sender_id !== req.user.id) {
+      if (message.senderId !== req.user.id) {
         throw new AppError('You can only delete your own messages', 403, 'FORBIDDEN');
       }
 
@@ -59,4 +60,3 @@ export const MessageController = {
     }
   },
 };
-

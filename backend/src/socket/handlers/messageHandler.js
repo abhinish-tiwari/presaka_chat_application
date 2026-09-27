@@ -14,6 +14,15 @@ export const registerMessageHandlers = (io, socket) => {
 				return socket.emit('error', { code: 'FORBIDDEN', message: 'Not a member of this chat' });
 			}
 
+			// Private chat block guard
+			const blockStatus = await ChatModel.getBlockStatus(chatId, socket.userId);
+			if (blockStatus?.hasBlockedOther || blockStatus?.isBlockedByOther) {
+				return socket.emit('error', {
+					code: 'CHAT_BLOCKED',
+					message: 'Cannot send messages in this conversation',
+				});
+			}
+
 			// Save message to DB
 			const message = await MessageModel.create(chatId, socket.userId, content, type, null, replyToId);
 			const fullMessage = await MessageModel.findById(message.id);

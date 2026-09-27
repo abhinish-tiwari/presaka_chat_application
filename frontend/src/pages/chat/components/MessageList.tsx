@@ -29,6 +29,113 @@ const MessageList = ({
   onEdit,
   onReaction,
 }: MessageListProps) => {
+  const renderStatusIcon = (status: Message['status']) => {
+    const baseClass = 'w-3.5 h-3.5';
+    switch (status) {
+      case 'sending':
+        return (
+          <svg
+            className={`${baseClass} animate-spin text-white/70`}
+            viewBox="0 0 24 24"
+            fill="none"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="9"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M12 3a9 9 0 019 9h-2a7 7 0 00-7-7V3z"
+            />
+          </svg>
+        );
+      case 'sent':
+        return (
+          <svg
+            className={`${baseClass} text-white/70`}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+          >
+            <path
+              d="M5 13l4 4L19 7"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        );
+      case 'delivered':
+        return (
+          <svg
+            className={`${baseClass} text-white/70`}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+          >
+            <path
+              d="M3 13l4 4L17 7"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M9 13l4 4L23 7"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        );
+      case 'read':
+        return (
+          <svg
+            className={`${baseClass} text-emerald-300`}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+          >
+            <path
+              d="M3 13l4 4L17 7"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M9 13l4 4L23 7"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        );
+      case 'failed':
+        return (
+          <svg
+            className={`${baseClass} text-red-300`}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+          >
+            <path
+              d="M12 8v5m0 4h.01"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <circle cx="12" cy="12" r="9" strokeWidth="2" />
+          </svg>
+        );
+      default:
+        return null;
+    }
+  };
+
   if (loading) return <div className="px-3 space-y-4 pt-2">Loading...</div>;
 
   if (chatMessages.length === 0) {
@@ -105,19 +212,7 @@ const MessageList = ({
                   <span className="text-[10px] opacity-70">{formatMessageTime(msg.createdAt)}</span>
                   {isOwn && (
                     <div className="flex -space-x-1.5">
-                      {msg.status === 'read' ? (
-                        <svg className="w-3.5 h-3.5 text-blue-300" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 11l-4 4-2-2m10-2l-4 4m0-4l4 4m-4-10l4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      ) : msg.status === 'delivered' ? (
-                        <svg className="w-3.5 h-3.5 opacity-60" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 11l-4 4-2-2m10-2l-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      ) : (
-                        <svg className="w-3.5 h-3.5 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path d="M5 13l4 4L19 7" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      )}
+                      {renderStatusIcon(msg.status)}
                     </div>
                   )}
                 </div>

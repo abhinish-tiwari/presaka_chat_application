@@ -67,6 +67,15 @@ const chatSlice = createSlice({
         state.chats.unshift(action.payload);
       }
     },
+    removeChat: (state, action: PayloadAction<string>) => {
+      const chatId = action.payload;
+      state.chats = state.chats.filter((chat) => chat.id !== chatId);
+      delete state.messages[chatId];
+      delete state.typingUsers[chatId];
+      if (state.activeChat === chatId) {
+        state.activeChat = null;
+      }
+    },
     setActiveChat: (state, action: PayloadAction<string | null>) => {
       state.activeChat = action.payload;
     },
@@ -164,6 +173,7 @@ const chatSlice = createSlice({
 export const {
   setChats,
   addChat,
+  removeChat,
   setActiveChat,
   setMessages,
   addMessage,

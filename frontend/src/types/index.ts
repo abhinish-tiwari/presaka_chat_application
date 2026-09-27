@@ -140,6 +140,7 @@ export interface ChatState {
   typingUsers: Record<string, string[]>;
   setChats: (chats: Chat[]) => void;
   addChat: (chat: Chat) => void;
+  removeChat: (chatId: string) => void;
   setActiveChat: (chatId: string | null) => void;
   setMessages: (chatId: string, messages: Message[]) => void;
   addMessage: (chatId: string, message: Message) => void;
@@ -158,4 +159,3 @@ export interface UIState {
   toggleSidebar: () => void;
   setTheme: (theme: 'light' | 'dark') => void;
 }
-
