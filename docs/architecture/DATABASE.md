@@ -11,29 +11,46 @@ Preṣaka uses **PostgreSQL** for persistent data storage and **Redis** for cach
 ### Entity Relationship Diagram
 
 ```
-┌─────────────┐         ┌─────────────┐         ┌─────────────┐
-│    users    │         │    chats    │         │  messages   │
-├─────────────┤         ├─────────────┤         ├─────────────┤
-│ id (PK)     │         │ id (PK)     │         │ id (PK)     │
-│ phone       │◄───┐    │ type        │◄───┐    │ chat_id (FK)│
-│ name        │    │    │ created_at  │    │    │ sender_id   │
-│ avatar_url  │    │    │ updated_at  │    │    │ content     │
-│ is_verified │    │    └─────────────┘    │    │ type        │
-│ last_seen   │    │                       │    │ status      │
-│ created_at  │    │                       │    │ created_at  │
-│ updated_at  │    │                       │    │ updated_at  │
-└─────────────┘    │                       │    │ deleted_at  │
-                   │                       │    └─────────────┘
-                   │    ┌─────────────┐    │
-                   └────┤chat_members │────┘
-                        ├─────────────┤
-                        │ id (PK)     │
-                        │ chat_id (FK)│
-                        │ user_id (FK)│
-                        │ role        │
-                        │ joined_at   │
-                        │ left_at     │
-                        └─────────────┘
+                      +-------------------+
+                      |       users       |
+                      +-------------------+
+                      | id (UUID, PK)     |
+                      | phone (VARCHAR)   |
+                      | name (VARCHAR)    |
+                      | avatar_url (TEXT) |
+                      | bio (TEXT)        |
+                      | is_verified (BOOL)|
+                      | last_seen (TIMEST)|
+                      +---------+---------+
+                                |
+          +---------------------+---------------------+
+          |                                           |
++---------v---------+                       +---------v---------+
+|    chat_members   |                       |    user_blocks    |
++-------------------+                       +-------------------+
+| chat_id (UUID, FK)|                       | blocker_id (UUID) |
+| user_id (UUID, FK)|                       | blocked_id (UUID) |
+| role (admin/member|                       +-------------------+
+| joined_at (TIMEST)|
+| left_at (TIMEST)  |
++---------+---------+
+          |
++---------v---------+       +-------------------+       +-------------------+
+|       chats       |<------+     messages      |<------+  message_receipts |
++-------------------+       +-------------------+       +-------------------+
+| id (UUID, PK)     |       | id (UUID, PK)     |       | message_id (UUID) |
+| type (priv/group) |       | chat_id (UUID, FK)|       | user_id (UUID, FK)|
+| name (VARCHAR)    |       | sender_id (UUID)  |       | delivered_at (TS) |
+| created_by (UUID) |       | content (TEXT)    |       | read_at (TIMEST)  |
++---------^---------+       | reply_to_id (UUID)|       +-------------------+
+          |                 | metadata (JSONB)  |
++---------+---------+       | deleted_at (TS)   |
+|    chat_clears    |       +-------------------+
++-------------------+
+| chat_id (UUID, FK)|
+| user_id (UUID, FK)|
+| cleared_at (TIMEST|
++-------------------+
 ```
 
 ---
@@ -205,6 +222,58 @@ CREATE INDEX idx_receipts_user_id ON message_receipts(user_id);
 - `user_id` - Reference to recipient
 - `delivered_at` - When message was delivered
 - `read_at` - When message was read
+
+---
+
+### 6. chat_clears
+
+Tracks per-user conversation clear timestamps so users can clear message history from their view without affecting other participants.
+
+```sql
+CREATE TABLE IF NOT EXISTS chat_clears (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    chat_id UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    cleared_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(chat_id, user_id)
+);
+
+-- Index
+CREATE INDEX IF NOT EXISTS idx_chat_clears_chat_user ON chat_clears(chat_id, user_id);
+```
+
+**Columns:**
+- `id` - Unique identifier (UUID)
+- `chat_id` - Reference to chat
+- `user_id` - User who cleared the conversation
+- `cleared_at` - Timestamp of clear action (messages created before this are excluded for this user)
+
+---
+
+### 7. user_blocks
+
+Tracks directional block relationships between users to enforce privacy and stop unwanted messages.
+
+```sql
+CREATE TABLE IF NOT EXISTS user_blocks (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    blocker_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    blocked_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CHECK (blocker_id <> blocked_id),
+    UNIQUE(blocker_id, blocked_id)
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_user_blocks_blocker ON user_blocks(blocker_id);
+CREATE INDEX IF NOT EXISTS idx_user_blocks_blocked ON user_blocks(blocked_id);
+```
+
+**Columns:**
+- `id` - Unique identifier (UUID)
+- `blocker_id` - User initiating the block
+- `blocked_id` - User being blocked
+- `created_at` - Timestamp when block was created
 
 ---
 

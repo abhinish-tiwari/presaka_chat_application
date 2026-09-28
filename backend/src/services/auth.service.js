@@ -1,4 +1,4 @@
-import { getRedis, setWithExpiry, get, del } from '../config/redis.js';
+import { setWithExpiry, get, del } from '../config/redis.js';
 import { UserModel } from '../models/user.model.js';
 import { generateOTP, hashOTP, verifyOTP as verifyOTPUtil, generateRequestId } from '../utils/otp.js';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt.js';

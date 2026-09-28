@@ -28,12 +28,10 @@
       "@/*": ["./src/*"],
       "@components/*": ["./src/components/*"],
       "@pages/*": ["./src/pages/*"],
-      "@hooks/*": ["./src/hooks/*"],
       "@services/*": ["./src/services/*"],
       "@utils/*": ["./src/utils/*"],
       "@store/*": ["./src/store/*"],
-      "@contexts/*": ["./src/contexts/*"],
-      "@assets/*": ["./src/assets/*"]
+      "@contexts/*": ["./src/contexts/*"]
     }
   },
   "include": ["src"],

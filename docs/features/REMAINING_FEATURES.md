@@ -2,40 +2,48 @@
 
 This document tracks all remaining features for Preṣaka, organized by development phase and priority.
 
-**Last Updated:** January 5, 2026
+**Last Updated:** February 2026
 
 ---
 
 ## 📊 Current Status
 
-- **Phase 1 (MVP):** ~85% Complete ✅
-- **Phase 2 (Enhancement):** ~5% Complete 🚧
+- **Phase 1 (MVP):** 100% Complete ✅
+- **Phase 2 (Enhancement):** ~35% Complete 🚧
 - **Phase 3 (Scale):** 0% Complete 📋
 - **Phase 4 (Innovation):** 0% Complete 📋
 
 **Total Progress:**
-- ✅ **Implemented:** 14 features
-- ❌ **Remaining:** 65+ features
-- 🎯 **High Priority:** 12 features
+- ✅ **Implemented:** 22 features
+- ❌ **Remaining:** 43+ features
+- 🎯 **High Priority:** 6 features
 
 ---
 
-## ✅ Currently Implemented (Phase 1 - MVP)
+## ✅ Currently Implemented
 
-1. ✅ Phone number + OTP authentication
-2. ✅ JWT token management with refresh
-3. ✅ 1-to-1 real-time chat
-4. ✅ Message persistence and history
-5. ✅ WebSocket real-time messaging
-6. ✅ Delivery and read receipts
-7. ✅ Typing indicators
-8. ✅ Online/offline presence
-9. ✅ Message deletion (soft delete)
-10. ✅ User profile management
-11. ✅ User search by phone
-12. ✅ **Last message display in chat list** ⭐ (January 5, 2026)
-13. ✅ **Message status indicators** ⭐ (January 5, 2026)
-14. ✅ **Emoji picker** ⭐ (January 5, 2026)
+1. ✅ **Phone number + OTP authentication** - Passwordless verification with rate limiting & Redis caching
+2. ✅ **JWT token management** - Short-lived access token + rotating httpOnly refresh cookie
+3. ✅ **1-to-1 real-time chat** - Low latency messaging over Socket.IO rooms
+4. ✅ **Message persistence and history** - PostgreSQL durable storage with UUIDs
+5. ✅ **WebSocket real-time messaging** - Dual-transport WebSocket with connection heartbeats
+6. ✅ **Delivery and read receipts** - Complete tick indicators (`sent`, `delivered`, `read`)
+7. ✅ **Typing indicators** - Debounced typing events with 5-second Redis TTL
+8. ✅ **Online/offline presence** - Redis set multi-session tracking and last seen persistence
+9. ✅ **Message deletion** - Soft delete with sender validation
+10. ✅ **User profile management** - Name, bio, avatar, and phone directory search
+11. ✅ **User search by phone** - Fast prefix lookup for new chat discovery
+12. ✅ **Last message display in chat list** - Real-time conversational preview
+13. ✅ **Message status indicators** - Single/double grey/blue ticks on all messages
+14. ✅ **Emoji picker** - Native categorized emoji picker
+15. ✅ **Message Editing** ⭐ - 15-minute edit window enforced on server with live socket broadcast
+16. ✅ **Reply to Messages** ⭐ - Quote preview and jump-to-reference functionality
+17. ✅ **Message Reactions** ⭐ - Live emoji reactions (👍, ❤️, 😂, etc.) with real-time toggle
+18. ✅ **Unread Message Counters** ⭐ - Real-time unread badges per conversation
+19. ✅ **Dark & Light Mode** ⭐ - Persistent theme switching across the entire UI
+20. ✅ **Clear Chat History** ⭐ - Independent per-user clearing via `chat_clears`
+21. ✅ **User Blocking** ⭐ - Privacy protection via `user_blocks` blocking messages & chat creation
+22. ✅ **Delete / Leave Conversation** ⭐ - Soft-leave conversation via `chat_members.left_at`
 
 ---
 
@@ -44,43 +52,26 @@ This document tracks all remaining features for Preṣaka, organized by developm
 ### Messaging Enhancements
 
 #### 1. Message Editing
-**Status:** ❌ Not Started
+**Status:** ✅ Implemented
 **Priority:** Medium
-**Effort:** Medium (5-6 days)
+**Effort:** Completed
 
 **Description:**
-- Edit sent messages within a time window
+- Edit sent messages within a 15-minute window
 - Show "edited" indicator on messages
-- Track edit history
-- Real-time edit updates via WebSocket
-
-**Technical Requirements:**
-- Database: Add `edited_at`, `edit_count` columns to messages table
-- Backend: PATCH `/api/messages/:id` endpoint
-- Backend: Validate edit time window (15 minutes)
-- WebSocket: Emit `message:edited` event
-- Frontend: Edit button in message menu
-- Frontend: Edit mode UI component
+- Real-time edit updates via WebSocket `message:edit` and `message:edited`
 
 ---
 
 #### 2. Reply to Messages
-**Status:** ❌ Not Started
+**Status:** ✅ Implemented
 **Priority:** High
-**Effort:** Medium (5-6 days)
+**Effort:** Completed
 
 **Description:**
 - Quote and reply to specific messages
-- Show quoted message in reply
-- Scroll to original message on click
-- Support replies in groups
-
-**Technical Requirements:**
-- Database: Add `reply_to_message_id` column to messages table
-- Backend: Include replied message in API response
-- Frontend: Reply UI component with quoted message
-- Frontend: Scroll to message functionality
-- WebSocket: Include reply context in new messages
+- Show quoted message preview in composer and message bubble
+- Jump and highlight original message on click
 
 ---
 
@@ -104,25 +95,14 @@ This document tracks all remaining features for Preṣaka, organized by developm
 ---
 
 #### 4. Message Reactions
-**Status:** ❌ Not Started
+**Status:** ✅ Implemented
 **Priority:** High
-**Effort:** Medium (4-5 days)
+**Effort:** Completed
 
 **Description:**
 - React to messages with emojis (👍 ❤️ 😂 😮 😢 🙏)
-- Show reaction count below messages
-- Display who reacted (on hover/click)
-- Real-time reaction updates
-- Remove own reaction
-
-**Technical Requirements:**
-- Database: Create `message_reactions` table (message_id, user_id, emoji, created_at)
-- Backend: POST `/api/messages/:id/reactions` endpoint
-- Backend: DELETE `/api/messages/:id/reactions/:emoji` endpoint
-- Backend: GET reactions with message details
-- WebSocket: Emit `reaction:added` and `reaction:removed` events
-- Frontend: Reaction picker UI component
-- Frontend: Reaction display component
+- Real-time reaction updates via `message:reaction:add` and `message:reaction:remove`
+- Toggle and remove own reactions
 
 ---
 

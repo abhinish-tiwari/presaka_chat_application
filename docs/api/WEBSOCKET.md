@@ -244,7 +244,122 @@ socket.on('message:status', (data) => {
   // data: {
   //   messageId: 'msg_123',
   //   status: 'read',
-  //   timestamp: '2024-01-15T10:30:00Z'
+  //   timestamp: '2026-02-12T10:30:00Z'
+  // }
+});
+```
+
+---
+
+#### 5. `message:edit`
+
+Edit a previously sent message (within 15-minute window).
+
+**Client → Server:**
+```javascript
+socket.emit('message:edit', {
+  messageId: 'msg_123',
+  chatId: 'chat_123',
+  content: 'Updated message content'
+});
+```
+
+**Server → Client (Broadcast to chat room):**
+```javascript
+socket.on('message:edited', (data) => {
+  console.log('Message edited:', data);
+  // data: {
+  //   messageId: 'msg_123',
+  //   chatId: 'chat_123',
+  //   content: 'Updated message content',
+  //   isEdited: true,
+  //   updatedAt: '2026-02-12T10:35:00Z'
+  // }
+});
+```
+
+**Errors:**
+- `TIME_EXPIRED`: Edit window expired (> 15 minutes)
+- `FORBIDDEN`: Only the author can edit their message
+
+---
+
+#### 6. `message:delete`
+
+Delete a message for everyone in the conversation.
+
+**Client → Server:**
+```javascript
+socket.emit('message:delete', {
+  messageId: 'msg_123',
+  chatId: 'chat_123'
+});
+```
+
+**Server → Client (Broadcast to chat room):**
+```javascript
+socket.on('message:deleted', (data) => {
+  console.log('Message deleted:', data);
+  // data: {
+  //   messageId: 'msg_123',
+  //   chatId: 'chat_123',
+  //   timestamp: '2026-02-12T10:36:00Z'
+  // }
+});
+```
+
+---
+
+#### 7. `message:reaction:add`
+
+Add an emoji reaction to a message.
+
+**Client → Server:**
+```javascript
+socket.emit('message:reaction:add', {
+  messageId: 'msg_123',
+  chatId: 'chat_123',
+  emoji: '❤️'
+});
+```
+
+**Server → Client (Broadcast to chat room):**
+```javascript
+socket.on('message:reaction:added', (data) => {
+  console.log('Reaction added:', data);
+  // data: {
+  //   messageId: 'msg_123',
+  //   chatId: 'chat_123',
+  //   userId: 'user_456',
+  //   emoji: '❤️'
+  // }
+});
+```
+
+---
+
+#### 8. `message:reaction:remove`
+
+Remove an emoji reaction from a message.
+
+**Client → Server:**
+```javascript
+socket.emit('message:reaction:remove', {
+  messageId: 'msg_123',
+  chatId: 'chat_123',
+  emoji: '❤️'
+});
+```
+
+**Server → Client (Broadcast to chat room):**
+```javascript
+socket.on('message:reaction:removed', (data) => {
+  console.log('Reaction removed:', data);
+  // data: {
+  //   messageId: 'msg_123',
+  //   chatId: 'chat_123',
+  //   userId: 'user_456',
+  //   emoji: '❤️'
   // }
 });
 ```

@@ -270,7 +270,7 @@ Authorization: Bearer <access_token>
 
 #### 1. Get All Chats
 
-Get list of user's chats.
+Get list of user's active chats with participants, last message, and unread count.
 
 **Endpoint:** `GET /chats`
 
@@ -289,26 +289,33 @@ Authorization: Bearer <access_token>
   "success": true,
   "chats": [
     {
-      "id": "chat_123",
+      "id": "c1f73b64-8848-4389-8d7b-402867a18bb0",
       "type": "private",
       "name": null,
       "avatarUrl": null,
       "lastMessage": {
-        "content": "Hello!",
-        "createdAt": "2024-01-15T10:30:00Z"
+        "id": "m9a12b43-4321-4321-4321-123456789abc",
+        "content": "Hey there! How are you?",
+        "type": "text",
+        "senderId": "u1234567-1111-2222-3333-444455556666",
+        "createdAt": "2026-02-12T10:30:00Z",
+        "status": "read"
       },
-      "unreadCount": 3,
-      "updatedAt": "2024-01-15T10:30:00Z",
-      "members": [
+      "unreadCount": 0,
+      "updatedAt": "2026-02-12T10:30:00Z",
+      "participants": [
         {
-          "id": "user_456",
+          "id": "u1234567-1111-2222-3333-444455556666",
           "name": "Jane Doe",
-          "avatarUrl": "https://cdn.presaka.app/avatars/user_456.jpg"
+          "phone": "+919876543210",
+          "avatarUrl": null,
+          "isOnline": true,
+          "lastSeen": "2026-02-12T10:35:00Z"
         }
       ]
     }
   ],
-  "total": 15
+  "total": 1
 }
 ```
 
@@ -316,7 +323,7 @@ Authorization: Bearer <access_token>
 
 #### 2. Create Private Chat
 
-Create or get existing private chat.
+Create or retrieve an existing 1-on-1 private chat.
 
 **Endpoint:** `POST /chats/private`
 
@@ -329,37 +336,40 @@ Content-Type: application/json
 **Request:**
 ```json
 {
-  "recipientId": "user_456"
+  "recipientId": "u1234567-1111-2222-3333-444455556666"
 }
 ```
 
-**Response:** `200 OK` or `201 Created`
+**Response:** `200 OK` (Existing) or `201 Created` (New)
 ```json
 {
   "success": true,
   "chat": {
-    "id": "chat_123",
+    "id": "c1f73b64-8848-4389-8d7b-402867a18bb0",
     "type": "private",
-    "createdAt": "2024-01-15T10:30:00Z",
-    "members": [
+    "createdAt": "2026-02-12T10:30:00Z",
+    "participants": [
       {
-        "id": "user_123",
-        "name": "John Doe"
-      },
-      {
-        "id": "user_456",
-        "name": "Jane Doe"
+        "id": "u1234567-1111-2222-3333-444455556666",
+        "name": "Jane Doe",
+        "phone": "+919876543210",
+        "isOnline": false,
+        "lastSeen": "2026-02-12T09:00:00Z"
       }
     ]
   }
 }
 ```
 
+**Errors:**
+- `400` - Recipient ID required or cannot create chat with self
+- `403` - CHAT_BLOCKED (one of the users has blocked the other)
+
 ---
 
 #### 3. Get Chat Details
 
-Get details of a specific chat.
+Get full details and participant list for a specific chat.
 
 **Endpoint:** `GET /chats/:chatId`
 
@@ -373,20 +383,89 @@ Authorization: Bearer <access_token>
 {
   "success": true,
   "chat": {
-    "id": "chat_123",
+    "id": "c1f73b64-8848-4389-8d7b-402867a18bb0",
     "type": "private",
     "name": null,
     "avatarUrl": null,
-    "createdAt": "2024-01-15T10:30:00Z",
-    "members": [
+    "createdAt": "2026-02-12T10:30:00Z",
+    "participants": [
       {
-        "id": "user_456",
+        "id": "u1234567-1111-2222-3333-444455556666",
         "name": "Jane Doe",
-        "avatarUrl": "https://cdn.presaka.app/avatars/user_456.jpg",
-        "role": "member"
+        "phone": "+919876543210",
+        "avatarUrl": null,
+        "isOnline": true,
+        "lastSeen": "2026-02-12T10:35:00Z"
       }
     ]
   }
+}
+```
+
+---
+
+#### 4. Clear Chat History
+
+Clear message history in this chat for the authenticated user only (does not clear for other participants).
+
+**Endpoint:** `POST /chats/:chatId/clear`
+
+**Headers:**
+```http
+Authorization: Bearer <access_token>
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Conversation cleared",
+  "clearedAt": "2026-02-12T11:00:00Z"
+}
+```
+
+---
+
+#### 5. Block User in Chat
+
+Block the other user in a private chat and leave the conversation.
+
+**Endpoint:** `POST /chats/:chatId/block`
+
+**Headers:**
+```http
+Authorization: Bearer <access_token>
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "User blocked successfully",
+  "blockedUserId": "u1234567-1111-2222-3333-444455556666",
+  "chatId": "c1f73b64-8848-4389-8d7b-402867a18bb0"
+}
+```
+
+---
+
+#### 6. Delete / Leave Chat
+
+Delete the chat for the authenticated user (removes conversation from active feed).
+
+**Endpoint:** `DELETE /chats/:chatId`
+
+**Headers:**
+```http
+Authorization: Bearer <access_token>
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Conversation deleted",
+  "chatId": "c1f73b64-8848-4389-8d7b-402867a18bb0"
 }
 ```
 
@@ -396,9 +475,9 @@ Authorization: Bearer <access_token>
 
 #### 1. Get Chat Messages
 
-Get messages from a chat.
+Get messages from a chat (paginated with before cursor).
 
-**Endpoint:** `GET /chats/:chatId/messages`
+**Endpoint:** `GET /messages/chats/:chatId/messages`
 
 **Headers:**
 ```http
@@ -407,8 +486,7 @@ Authorization: Bearer <access_token>
 
 **Query Parameters:**
 - `limit` (optional) - Number of messages (default: 50)
-- `before` (optional) - Get messages before this message ID
-- `after` (optional) - Get messages after this message ID
+- `before` (optional) - Timestamp or message cursor to fetch older messages
 
 **Response:** `200 OK`
 ```json
@@ -416,23 +494,45 @@ Authorization: Bearer <access_token>
   "success": true,
   "messages": [
     {
-      "id": "msg_123",
-      "chatId": "chat_123",
-      "senderId": "user_456",
-      "content": "Hello!",
+      "id": "m9a12b43-4321-4321-4321-123456789abc",
+      "chatId": "c1f73b64-8848-4389-8d7b-402867a18bb0",
+      "senderId": "u1234567-1111-2222-3333-444455556666",
+      "content": "Hello! How can I help you?",
       "type": "text",
       "status": "read",
-      "createdAt": "2024-01-15T10:30:00Z",
-      "sender": {
-        "id": "user_456",
-        "name": "Jane Doe",
-        "avatarUrl": "https://cdn.presaka.app/avatars/user_456.jpg"
-      }
+      "replyToId": null,
+      "createdAt": "2026-02-12T10:30:00Z",
+      "updatedAt": "2026-02-12T10:30:00Z"
     }
   ],
-  "hasMore": true
+  "hasMore": false
 }
 ```
+
+---
+
+#### 2. Delete Message
+
+Soft-delete a message (only message authors can delete their messages).
+
+**Endpoint:** `DELETE /messages/:messageId`
+
+**Headers:**
+```http
+Authorization: Bearer <access_token>
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Message deleted successfully"
+}
+```
+
+**Errors:**
+- `403` - You can only delete your own messages
+- `404` - Message not found
 
 ---
 
